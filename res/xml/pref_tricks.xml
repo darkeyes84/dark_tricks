@@ -1,0 +1,45 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreference
+        android:key="trick_hideLtePlus"
+        android:title="@string/hideLtePlus_title"
+        android:summary="@string/hideLtePlus_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
+        android:key="trick_useKeyguardPhone"
+        android:title="@string/useKeyguardPhone_title"
+        android:summary="@string/useKeyguardPhone_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
+        android:key="trick_hideNextAlarm"
+        android:title="@string/hideNextAlarm_title"
+        android:summary="@string/hideNextAlarm_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
+        android:key="trick_navbarAlwaysRight"
+        android:title="@string/navbarAlwaysRight_title"
+        android:summary="@string/navbarAlwaysRight_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
+        android:key="trick_forceDarkTheme"
+        android:title="@string/forceDarkTheme_title"
+        android:summary="@string/forceDarkTheme_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
+        android:key="trick_hideAdbNotification"
+        android:title="@string/hideAdbNotification_title"
+        android:summary="@string/hideAdbNotification_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
+        android:key="trick_hideVpn"
+        android:title="@string/hideVpn_title"
+        android:summary="@string/hideVpn_summary"
+        android:defaultValue="true" />
+
+</PreferenceScreen>
