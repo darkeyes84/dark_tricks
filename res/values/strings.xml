@@ -5,13 +5,15 @@
     <string name="useKeyguardPhone_title">Use phone on lockscreen</string>
     <string name="useKeyguardPhone_summary">Replace voice assist shortcut on the lockscreen with phone shortcut</string>
     <string name="hideNextAlarm_title">Hide next alarm</string>
-    <string name="hideNextAlarm_summary">Remove alarm from the lockscreen and the quick settings</string>
+    <string name="hideNextAlarm_summary">Remove icon from the status bar and next alarm from the lockscreen and the quick settings</string>
     <string name="navbarAlwaysRight_title">Navigation bar on the right</string>
     <string name="navbarAlwaysRight_summary">When in landscape, always display the navigation bar on the right</string>
     <string name="forceDarkTheme_title">Force dark theme</string>
     <string name="forceDarkTheme_summary">Always enable dark theme even on light wallpapers</string>
     <string name="hideAdbNotification_title">Hide ADB notification</string>
     <string name="hideAdbNotification_summary">Remove the notification when USB debugging is enabled</string>
-    <string name="hideVpn_title">Hide VPN notification</string>
+    <string name="hideVpn_title">Hide VPN notifications</string>
     <string name="hideVpn_summary">Remove icon from the status bar and notification from the quick settings</string>
+    <string name="hideCert_title">Hide user certificate notification</string>
+    <string name="hideCert_summary">Remove \"Network may be monitored\" from the quick settings</string>
 </resources>

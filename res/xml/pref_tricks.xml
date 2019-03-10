@@ -1,4 +1,6 @@
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:key="prefScreen">
 
     <SwitchPreference
         android:key="trick_hideLtePlus"
@@ -19,6 +21,18 @@
         android:defaultValue="true" />
 
     <SwitchPreference
+        android:key="trick_hideVpn"
+        android:title="@string/hideVpn_title"
+        android:summary="@string/hideVpn_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
+        android:key="trick_hideCert"
+        android:title="@string/hideCert_title"
+        android:summary="@string/hideCert_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
         android:key="trick_navbarAlwaysRight"
         android:title="@string/navbarAlwaysRight_title"
         android:summary="@string/navbarAlwaysRight_summary"
@@ -34,12 +48,6 @@
         android:key="trick_hideAdbNotification"
         android:title="@string/hideAdbNotification_title"
         android:summary="@string/hideAdbNotification_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_hideVpn"
-        android:title="@string/hideVpn_title"
-        android:summary="@string/hideVpn_summary"
         android:defaultValue="true" />
 
 </PreferenceScreen>
