@@ -1,6 +1,7 @@
 package com.darkeyes.tricks;
 
 import android.content.Context;
+import android.graphics.Rect;
 import android.os.Build;
 
 import java.io.File;
@@ -14,11 +15,15 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.getIntField;
+import static de.robv.android.xposed.XposedHelpers.getObjectField;
+import static de.robv.android.xposed.XposedHelpers.setIntField;
 
 public class Main implements IXposedHookLoadPackage {
 
     private static final File prefFile = new File("/data/user_de/0/com.darkeyes.tricks/shared_prefs/com.darkeyes.tricks_preferences.xml");
     private static XSharedPreferences pref;
+    int mRotation;
+    Object mObject;
 
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam param) {
 
@@ -73,21 +78,21 @@ public class Main implements IXposedHookLoadPackage {
                     String CLASS = Build.VERSION.SDK_INT == 27 ? "com.android.systemui.qs.QSFooterImpl" : "com.android.systemui.qs.QSFooter";
                     findAndHookMethod(CLASS, param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        protected void beforeHookedMethod(MethodHookParam param) {
                             param.setResult(null);
                         }
                     });
 
                     findAndHookMethod("com.android.keyguard.KeyguardStatusView", param.classLoader, "refreshAlarmStatus", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        protected void beforeHookedMethod(MethodHookParam param) {
                             param.setResult(null);
                         }
                     });
 
                     findAndHookMethod("com.android.keyguard.KeyguardStatusView.Patterns", param.classLoader, "update", Context.class, boolean.class, new XC_MethodHook() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        protected void beforeHookedMethod(MethodHookParam param) {
                             param.args[1] = false;
                         }
                     });
@@ -122,40 +127,103 @@ public class Main implements IXposedHookLoadPackage {
             if (pref.getBoolean("trick_useKeyguardPhone", true) && (Build.VERSION.SDK_INT != 28)) {
                 findAndHookMethod("com.android.systemui.statusbar.phone.KeyguardBottomAreaView", param.classLoader, "canLaunchVoiceAssist", new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         param.setResult(false);
                     }
                 });
             }
 
-            if (pref.getBoolean("trick_navbarAlwaysRight", true) && (Build.VERSION.SDK_INT != 28)) {
+            if (pref.getBoolean("trick_navbarAlwaysRight", true)) {
                 findAndHookMethod("com.android.systemui.statusbar.phone.NavigationBarInflaterView", param.classLoader, "setAlternativeOrder", boolean.class, new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         param.args[0] = true;
                     }
                 });
+
+                if ((Build.VERSION.SDK_INT == 28)) {
+                    findAndHookMethod("com.android.systemui.util.leak.RotationUtils", param.classLoader, "getRotation", "android.content.Context", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            if ((int)param.getResult() == 2) {
+                                param.setResult(1);
+                            }
+                        }
+                    });
+
+                    findAndHookMethod("com.android.systemui.util.leak.RotationUtils", param.classLoader, "getExactRotation", "android.content.Context", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            if ((int)param.getResult() == 2) {
+                                param.setResult(1);
+                            }
+                        }
+                    });
+                }
             }
 
             if (pref.getBoolean("trick_forceDarkTheme", true) && (Build.VERSION.SDK_INT == 27)) {
                 findAndHookMethod("android.app.WallpaperColors", param.classLoader, "getColorHints", new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         int colorHints = getIntField(param.thisObject, "mColorHints");
                         colorHints |= 1<<1;
                         param.setResult(colorHints);
                     }
                 });
-
-
             }
 
         } else if (param.packageName.equals("android")) {
+            if (pref.getBoolean("trick_navbarAlwaysRight", true) && (Build.VERSION.SDK_INT == 28)) {
+                findAndHookMethod("com.android.server.wm.DisplayFrames", param.classLoader, "onDisplayInfoUpdated", "android.view.DisplayInfo", "com.android.server.wm.utils.WmDisplayCutout", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        mObject = param.thisObject;
+                        mRotation = getIntField(mObject, "mRotation");
+                    }
+                });
+
+                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "layoutNavigationBar", "com.android.server.wm.DisplayFrames", int.class, "android.graphics.Rect", boolean.class, boolean.class, boolean.class, boolean.class, new XC_MethodHook() {
+                    boolean mTampered = false;
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if (mRotation == 3) {
+                            setIntField(mObject, "mRotation", 1);
+                            mTampered = true;
+                        }
+                    }
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        if (mTampered == true) {
+                            setIntField(mObject, "mRotation", 3);
+                            mTampered = false;
+                        }
+                    }
+                });
+
+                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "getNonDecorInsetsLw", int.class, int.class, int.class, "android.view.DisplayCutout", "android.graphics.Rect", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if ((int)param.args[0] == 3) {
+                            param.args[0] = 1;
+                        }
+                    }
+                });
+
+                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "isDockSideAllowed", int.class, int.class, int.class, int.class, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if ((int)param.args[4] == 3) {
+                            param.args[4] = 1;
+                        }
+                    }
+                });
+            }
 
             if (pref.getBoolean("trick_navbarAlwaysRight", true) && (Build.VERSION.SDK_INT != 28)) {
                 findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "navigationBarPosition", int.class, int.class, int.class, new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         param.args[2] = 1;
                     }
                 });
@@ -169,12 +237,37 @@ public class Main implements IXposedHookLoadPackage {
                     }
                 });
             }
+
         } else if (param.packageName.equals("com.google.android.apps.nexuslauncher")) {
+            if (pref.getBoolean("trick_navbarAlwaysRight", true) && (Build.VERSION.SDK_INT == 28)) {
+                findAndHookMethod("com.android.launcher3.DeviceProfile", param.classLoader, "updateIsSeascape", "android.view.WindowManager", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        param.setResult(false);
+                    }
+                });
+
+                findAndHookMethod("com.android.quickstep.OtherActivityTouchConsumer", param.classLoader, "isNavBarOnRight", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        int mDisplayRotation = getIntField(param.thisObject, "mDisplayRotation");
+                        Rect mStableInsets = (Rect)getObjectField(param.thisObject, "mStableInsets");
+                        param.setResult((mDisplayRotation == 1 || mDisplayRotation == 3) && mStableInsets.right > 0);
+                    }
+                });
+
+                findAndHookMethod("com.android.quickstep.OtherActivityTouchConsumer", param.classLoader, "isNavBarOnLeft", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        param.setResult(false);
+                    }
+                });
+            }
 
             if (pref.getBoolean("trick_forceDarkTheme", true) && (Build.VERSION.SDK_INT == 27)) {
                 findAndHookMethod("android.app.WallpaperColors", param.classLoader, "getColorHints", new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         int colorHints = getIntField(param.thisObject, "mColorHints");
                         colorHints |= 1<<1;
                         param.setResult(colorHints);

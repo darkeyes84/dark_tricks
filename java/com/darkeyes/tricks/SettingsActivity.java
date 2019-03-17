@@ -20,7 +20,6 @@ public class SettingsActivity extends PreferenceActivity {
         addPreferencesFromResource(R.xml.pref_tricks);
 
         PreferenceScreen prefScreen = (PreferenceScreen) findPreference("prefScreen");
-        SwitchPreference navbarAlwaysRight = (SwitchPreference) findPreference("trick_navbarAlwaysRight");
         SwitchPreference forceDarkTheme = (SwitchPreference) findPreference("trick_forceDarkTheme");
         SwitchPreference useKeyguardPhone = (SwitchPreference) findPreference("trick_useKeyguardPhone");
 
@@ -29,7 +28,6 @@ public class SettingsActivity extends PreferenceActivity {
         }
         if (Build.VERSION.SDK_INT == 28) {
             prefScreen.removePreference(useKeyguardPhone);
-            prefScreen.removePreference(navbarAlwaysRight);
         }
     }
 
