@@ -5,8 +5,6 @@ import android.graphics.Rect;
 import android.os.Build;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.List;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -16,6 +14,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.getIntField;
 import static de.robv.android.xposed.XposedHelpers.getObjectField;
+import static de.robv.android.xposed.XposedHelpers.setBooleanField;
 import static de.robv.android.xposed.XposedHelpers.setIntField;
 
 public class Main implements IXposedHookLoadPackage {
@@ -31,24 +30,16 @@ public class Main implements IXposedHookLoadPackage {
 
         if (param.packageName.equals("com.android.systemui")) {
 
-            new ResourceProxy(param.packageName, new ResourceProxy.Interceptor() {
-                @Override
-                public List<String> getSupportedResourceNames() {
-                    return Arrays.asList("config_hideLtePlus");
-                }
+            if (pref.getBoolean("trick_hideLtePlus", true)) {
 
-                @Override
-                public boolean onIntercept(ResourceProxy.ResourceSpec resourceSpec) {
-                    switch(resourceSpec.name) {
-                        case ("config_hideLtePlus") :
-                            if (pref.getBoolean("trick_hideLtePlus", true)) {
-                                resourceSpec.value = true;
-                                return true;
-                            }
+                findAndHookMethod("com.android.systemui.statusbar.policy.NetworkControllerImpl.Config", param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        setBooleanField(param.getResult(), "hideLtePlus", true);
                     }
-                    return false;
-                }
-            });
+                });
+
+            }
 
             if (pref.getBoolean("trick_hideNextAlarm", true)) {
                 findAndHookMethod("com.android.systemui.statusbar.phone.PhoneStatusBarPolicy", param.classLoader, "updateAlarm", new XC_MethodHook() {
@@ -58,7 +49,7 @@ public class Main implements IXposedHookLoadPackage {
                     }
                 });
 
-                if (Build.VERSION.SDK_INT == 28) {
+                if (Build.VERSION.SDK_INT >= 28) {
                     findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
@@ -72,9 +63,7 @@ public class Main implements IXposedHookLoadPackage {
                             param.setResult(null);
                         }
                     });
-                }
-
-                if (Build.VERSION.SDK_INT != 28) {
+                } else {
                     String CLASS = Build.VERSION.SDK_INT == 27 ? "com.android.systemui.qs.QSFooterImpl" : "com.android.systemui.qs.QSFooter";
                     findAndHookMethod(CLASS, param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
                         @Override
@@ -100,6 +89,7 @@ public class Main implements IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_hideVpn", true)) {
+
                 findAndHookMethod("com.android.systemui.statusbar.policy.SecurityControllerImpl", param.classLoader, "isVpnEnabled", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -116,6 +106,7 @@ public class Main implements IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_hideCert", true)) {
+
                 findAndHookMethod("com.android.systemui.statusbar.policy.SecurityControllerImpl", param.classLoader, "hasCACertInCurrentUser", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -124,7 +115,7 @@ public class Main implements IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_useKeyguardPhone", true) && (Build.VERSION.SDK_INT != 28)) {
+            if (pref.getBoolean("trick_useKeyguardPhone", true) && (Build.VERSION.SDK_INT < 28)) {
                 findAndHookMethod("com.android.systemui.statusbar.phone.KeyguardBottomAreaView", param.classLoader, "canLaunchVoiceAssist", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -141,7 +132,7 @@ public class Main implements IXposedHookLoadPackage {
                     }
                 });
 
-                if ((Build.VERSION.SDK_INT == 28)) {
+                if ((Build.VERSION.SDK_INT >= 28)) {
                     findAndHookMethod("com.android.systemui.util.leak.RotationUtils", param.classLoader, "getRotation", "android.content.Context", new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
@@ -173,60 +164,77 @@ public class Main implements IXposedHookLoadPackage {
                 });
             }
 
-        } else if (param.packageName.equals("android")) {
-            if (pref.getBoolean("trick_navbarAlwaysRight", true) && (Build.VERSION.SDK_INT == 28)) {
-                findAndHookMethod("com.android.server.wm.DisplayFrames", param.classLoader, "onDisplayInfoUpdated", "android.view.DisplayInfo", "com.android.server.wm.utils.WmDisplayCutout", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        mObject = param.thisObject;
-                        mRotation = getIntField(mObject, "mRotation");
-                    }
-                });
+            if (pref.getBoolean("trick_trick_hideBuildVersion", true)) {
 
-                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "layoutNavigationBar", "com.android.server.wm.DisplayFrames", int.class, "android.graphics.Rect", boolean.class, boolean.class, boolean.class, boolean.class, new XC_MethodHook() {
-                    boolean mTampered = false;
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        if (mRotation == 3) {
-                            setIntField(mObject, "mRotation", 1);
-                            mTampered = true;
+                if (Build.VERSION.SDK_INT == 29) {
+                    findAndHookMethod("com.android.systemui.qs.QSFooterImpl", param.classLoader, "setBuildText", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            param.setResult(null);
                         }
-                    }
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (mTampered == true) {
-                            setIntField(mObject, "mRotation", 3);
-                            mTampered = false;
-                        }
-                    }
-                });
-
-                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "getNonDecorInsetsLw", int.class, int.class, int.class, "android.view.DisplayCutout", "android.graphics.Rect", new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        if ((int)param.args[0] == 3) {
-                            param.args[0] = 1;
-                        }
-                    }
-                });
-
-                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "isDockSideAllowed", int.class, int.class, int.class, int.class, int.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        if ((int)param.args[4] == 3) {
-                            param.args[4] = 1;
-                        }
-                    }
-                });
+                    });
+                }
             }
 
-            if (pref.getBoolean("trick_navbarAlwaysRight", true) && (Build.VERSION.SDK_INT != 28)) {
-                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "navigationBarPosition", int.class, int.class, int.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        param.args[2] = 1;
-                    }
-                });
+        } else if (param.packageName.equals("android")) {
+            if (pref.getBoolean("trick_navbarAlwaysRight", true)) {
+                if (Build.VERSION.SDK_INT == 28) {
+
+                    findAndHookMethod("com.android.server.wm.DisplayFrames", param.classLoader, "onDisplayInfoUpdated", "android.view.DisplayInfo", "com.android.server.wm.utils.WmDisplayCutout", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            mObject = param.thisObject;
+                            mRotation = getIntField(mObject, "mRotation");
+                        }
+                    });
+
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "layoutNavigationBar", "com.android.server.wm.DisplayFrames", int.class, "android.graphics.Rect", boolean.class, boolean.class, boolean.class, boolean.class, new XC_MethodHook() {
+                        boolean mTampered = false;
+
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if (mRotation == 3) {
+                                setIntField(mObject, "mRotation", 1);
+                                mTampered = true;
+                            }
+                        }
+
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            if (mTampered == true) {
+                                setIntField(mObject, "mRotation", 3);
+                                mTampered = false;
+                            }
+                        }
+                    });
+
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "getNonDecorInsetsLw", int.class, int.class, int.class, "android.view.DisplayCutout", "android.graphics.Rect", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if ((int) param.args[0] == 3) {
+                                param.args[0] = 1;
+                            }
+                        }
+                    });
+
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "isDockSideAllowed", int.class, int.class, int.class, int.class, int.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if ((int) param.args[4] == 3) {
+                                param.args[4] = 1;
+                            }
+                        }
+                    });
+
+                } else if (Build.VERSION.SDK_INT < 28) {
+
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "navigationBarPosition", int.class, int.class, int.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            param.args[2] = 1;
+                        }
+                    });
+                }
             }
 
             if (pref.getBoolean("trick_hideAdbNotification", true)) {

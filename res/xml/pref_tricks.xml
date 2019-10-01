@@ -50,4 +50,10 @@
         android:summary="@string/hideAdbNotification_summary"
         android:defaultValue="true" />
 
+    <SwitchPreference
+        android:key="trick_hideBuildVersion"
+        android:title="@string/hideBuildVersion_title"
+        android:summary="@string/hideBuildVersion_summary"
+        android:defaultValue="true" />
+
 </PreferenceScreen>

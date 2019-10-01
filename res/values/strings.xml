@@ -16,4 +16,6 @@
     <string name="hideVpn_summary">Remove icon from the status bar and notification from the quick settings</string>
     <string name="hideCert_title">Hide user certificate notification</string>
     <string name="hideCert_summary">Remove \"Network may be monitored\" from the quick settings</string>
+    <string name="hideBuildVersion_title">Hide build version</string>
+    <string name="hideBuildVersion_summary">Remove build version from the quick settings when developer options are enabled</string>
 </resources>

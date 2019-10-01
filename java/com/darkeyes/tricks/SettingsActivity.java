@@ -22,12 +22,20 @@ public class SettingsActivity extends PreferenceActivity {
         PreferenceScreen prefScreen = (PreferenceScreen) findPreference("prefScreen");
         SwitchPreference forceDarkTheme = (SwitchPreference) findPreference("trick_forceDarkTheme");
         SwitchPreference useKeyguardPhone = (SwitchPreference) findPreference("trick_useKeyguardPhone");
+        SwitchPreference navbarAlwaysRight = (SwitchPreference) findPreference("trick_navbarAlwaysRight");
+        SwitchPreference hideBuildVersion = (SwitchPreference) findPreference("trick_hideBuildVersion");
 
         if (Build.VERSION.SDK_INT != 27) {
             prefScreen.removePreference(forceDarkTheme);
         }
-        if (Build.VERSION.SDK_INT == 28) {
+        if (Build.VERSION.SDK_INT >= 28) {
             prefScreen.removePreference(useKeyguardPhone);
+        }
+        if (Build.VERSION.SDK_INT == 29) {
+            prefScreen.removePreference(navbarAlwaysRight);
+        }
+        if (Build.VERSION.SDK_INT != 29) {
+            prefScreen.removePreference(hideBuildVersion);
         }
     }
 
