@@ -32,15 +32,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
 
         getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
-
-        String carrierText = customCarrierText.getText();
-        if (carrierText == null || carrierText.isEmpty()) {
-            customCarrierText.setSummary("Default");
-        } else if (carrierText.trim().isEmpty()) {
-            customCarrierText.setSummary("Empty");
-        } else {
-            customCarrierText.setSummary(carrierText);
-        }
+        updateSummary();
 
         if (Build.VERSION.SDK_INT != 27) {
             prefScreen.removePreference(forceDarkTheme);
@@ -85,6 +77,10 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
     }
 
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        updateSummary();
+    }
+
+    private void updateSummary() {
         String carrierText = customCarrierText.getText();
         if (carrierText == null || carrierText.isEmpty()) {
             customCarrierText.setSummary("Default");

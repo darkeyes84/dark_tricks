@@ -22,8 +22,9 @@ public class Main implements IXposedHookLoadPackage {
 
     private static final File prefFile = new File("/data/user_de/0/com.darkeyes.tricks/shared_prefs/com.darkeyes.tricks_preferences.xml");
     private static XSharedPreferences pref;
-    int mRotation;
-    Object mObject;
+    private int mRotation;
+    private Object mObject;
+    private String carrierText;
 
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam param) {
 
@@ -31,24 +32,22 @@ public class Main implements IXposedHookLoadPackage {
 
         if (param.packageName.equals("com.android.systemui")) {
 
-            if (pref.getBoolean("trick_hideLtePlus", true) || pref.getBoolean("trick_show4gForLte", false)) {
+            findAndHookMethod("com.android.systemui.statusbar.policy.NetworkControllerImpl.Config", param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
 
-                findAndHookMethod("com.android.systemui.statusbar.policy.NetworkControllerImpl.Config", param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (pref.getBoolean("trick_hideLtePlus", true)) {
-                            setBooleanField(param.getResult(), "hideLtePlus", true);
-                        } else {
-                            setBooleanField(param.getResult(), "hideLtePlus", false);
-                        }
-                        if (pref.getBoolean("trick_show4gForLte", false)) {
-                            setBooleanField(param.getResult(), "show4gForLte", true);
-                        } else {
-                            setBooleanField(param.getResult(), "show4gForLte", false);
-                        }
+                    if (pref.getBoolean("trick_hideLtePlus", true)) {
+                        setBooleanField(param.getResult(), "hideLtePlus", true);
+                    } else {
+                        setBooleanField(param.getResult(), "hideLtePlus", false);
                     }
-                });
-            }
+                    if (pref.getBoolean("trick_show4gForLte", false)) {
+                        setBooleanField(param.getResult(), "show4gForLte", true);
+                    } else {
+                        setBooleanField(param.getResult(), "show4gForLte", false);
+                    }
+                }
+            });
 
             if (pref.getBoolean("trick_hideNextAlarm", true)) {
                 findAndHookMethod("com.android.systemui.statusbar.phone.PhoneStatusBarPolicy", param.classLoader, "updateAlarm", new XC_MethodHook() {
@@ -185,26 +184,25 @@ public class Main implements IXposedHookLoadPackage {
                 }
             }
 
-            findAndHookMethod("com.android.systemui.qs.QSCarrier", param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
-                    String carrierText = pref.getString("trick_customCarrierText", "");
-                    if (carrierText != null && !carrierText.isEmpty()) {
+            carrierText = pref.getString("trick_customCarrierText", "");
+
+            if (carrierText != null && !carrierText.isEmpty()) {
+                findAndHookMethod("com.android.systemui.qs.QSCarrier", param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+
                         param.args[0] = carrierText.trim().isEmpty() ? "" : carrierText;
                     }
-                }
-            });
+                });
 
-            findAndHookMethod("com.android.keyguard.CarrierTextController", param.classLoader, "postToCallback", "com.android.keyguard.CarrierTextController.CarrierTextCallbackInfo", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
-                    String carrierText = pref.getString("trick_customCarrierText", "");
-                    if (carrierText != null && !carrierText.isEmpty()) {
-                        setObjectField(param.args[0], "carrierText",
-                                carrierText.trim().isEmpty() ? "" : carrierText);
+                findAndHookMethod("com.android.keyguard.CarrierTextController", param.classLoader, "postToCallback", "com.android.keyguard.CarrierTextController.CarrierTextCallbackInfo", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+
+                        setObjectField(param.args[0], "carrierText", carrierText.trim().isEmpty() ? "" : carrierText);
                     }
-                }
-            });
+                });
+            }
 
         } else if (param.packageName.equals("android")) {
             if (pref.getBoolean("trick_navbarAlwaysRight", true)) {
