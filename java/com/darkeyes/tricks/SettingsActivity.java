@@ -1,14 +1,19 @@
 package com.darkeyes.tricks;
 
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.EditTextPreference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
 
 import java.io.File;
 
-public class SettingsActivity extends PreferenceActivity {
+public class SettingsActivity extends PreferenceActivity implements OnSharedPreferenceChangeListener {
+
+    private EditTextPreference customCarrierText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,6 +29,18 @@ public class SettingsActivity extends PreferenceActivity {
         SwitchPreference useKeyguardPhone = (SwitchPreference) findPreference("trick_useKeyguardPhone");
         SwitchPreference navbarAlwaysRight = (SwitchPreference) findPreference("trick_navbarAlwaysRight");
         SwitchPreference hideBuildVersion = (SwitchPreference) findPreference("trick_hideBuildVersion");
+        customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
+
+        getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
+
+        String carrierText = customCarrierText.getText();
+        if (carrierText == null || carrierText.isEmpty()) {
+            customCarrierText.setSummary("Default");
+        } else if (carrierText.trim().isEmpty()) {
+            customCarrierText.setSummary("Empty");
+        } else {
+            customCarrierText.setSummary(carrierText);
+        }
 
         if (Build.VERSION.SDK_INT != 27) {
             prefScreen.removePreference(forceDarkTheme);
@@ -40,8 +57,16 @@ public class SettingsActivity extends PreferenceActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
+
+        getPreferenceScreen().getSharedPreferences().unregisterOnSharedPreferenceChangeListener(this);
 
         File mainFolder = new File("/data/user_de/0/com.darkeyes.tricks");
         if (mainFolder.exists()) {
@@ -56,6 +81,17 @@ public class SettingsActivity extends PreferenceActivity {
         File prefFile = new File("/data/user_de/0/com.darkeyes.tricks/shared_prefs/com.darkeyes.tricks_preferences.xml");
         if (prefFile.exists()) {
             prefFile.setReadable(true, false);
+        }
+    }
+
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        String carrierText = customCarrierText.getText();
+        if (carrierText == null || carrierText.isEmpty()) {
+            customCarrierText.setSummary("Default");
+        } else if (carrierText.trim().isEmpty()) {
+            customCarrierText.setSummary("Empty");
+        } else {
+            customCarrierText.setSummary(carrierText);
         }
     }
 }

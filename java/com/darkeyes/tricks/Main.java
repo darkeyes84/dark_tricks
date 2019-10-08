@@ -16,6 +16,7 @@ import static de.robv.android.xposed.XposedHelpers.getIntField;
 import static de.robv.android.xposed.XposedHelpers.getObjectField;
 import static de.robv.android.xposed.XposedHelpers.setBooleanField;
 import static de.robv.android.xposed.XposedHelpers.setIntField;
+import static de.robv.android.xposed.XposedHelpers.setObjectField;
 
 public class Main implements IXposedHookLoadPackage {
 
@@ -30,15 +31,23 @@ public class Main implements IXposedHookLoadPackage {
 
         if (param.packageName.equals("com.android.systemui")) {
 
-            if (pref.getBoolean("trick_hideLtePlus", true)) {
+            if (pref.getBoolean("trick_hideLtePlus", true) || pref.getBoolean("trick_show4gForLte", false)) {
 
                 findAndHookMethod("com.android.systemui.statusbar.policy.NetworkControllerImpl.Config", param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
-                        setBooleanField(param.getResult(), "hideLtePlus", true);
+                        if (pref.getBoolean("trick_hideLtePlus", true)) {
+                            setBooleanField(param.getResult(), "hideLtePlus", true);
+                        } else {
+                            setBooleanField(param.getResult(), "hideLtePlus", false);
+                        }
+                        if (pref.getBoolean("trick_show4gForLte", false)) {
+                            setBooleanField(param.getResult(), "show4gForLte", true);
+                        } else {
+                            setBooleanField(param.getResult(), "show4gForLte", false);
+                        }
                     }
                 });
-
             }
 
             if (pref.getBoolean("trick_hideNextAlarm", true)) {
@@ -164,7 +173,7 @@ public class Main implements IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_trick_hideBuildVersion", true)) {
+            if (pref.getBoolean("trick_hideBuildVersion", true)) {
 
                 if (Build.VERSION.SDK_INT == 29) {
                     findAndHookMethod("com.android.systemui.qs.QSFooterImpl", param.classLoader, "setBuildText", new XC_MethodHook() {
@@ -175,6 +184,27 @@ public class Main implements IXposedHookLoadPackage {
                     });
                 }
             }
+
+            findAndHookMethod("com.android.systemui.qs.QSCarrier", param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    String carrierText = pref.getString("trick_customCarrierText", "");
+                    if (carrierText != null && !carrierText.isEmpty()) {
+                        param.args[0] = carrierText.trim().isEmpty() ? "" : carrierText;
+                    }
+                }
+            });
+
+            findAndHookMethod("com.android.keyguard.CarrierTextController", param.classLoader, "postToCallback", "com.android.keyguard.CarrierTextController.CarrierTextCallbackInfo", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    String carrierText = pref.getString("trick_customCarrierText", "");
+                    if (carrierText != null && !carrierText.isEmpty()) {
+                        setObjectField(param.args[0], "carrierText",
+                                carrierText.trim().isEmpty() ? "" : carrierText);
+                    }
+                }
+            });
 
         } else if (param.packageName.equals("android")) {
             if (pref.getBoolean("trick_navbarAlwaysRight", true)) {

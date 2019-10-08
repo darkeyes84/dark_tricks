@@ -3,6 +3,12 @@
     android:key="prefScreen">
 
     <SwitchPreference
+        android:key="trick_show4gForLte"
+        android:title="@string/show4gForLte_title"
+        android:summary="@string/show4gForLte_summary"
+        android:defaultValue="false" />
+
+    <SwitchPreference
         android:key="trick_hideLtePlus"
         android:title="@string/hideLtePlus_title"
         android:summary="@string/hideLtePlus_summary"
@@ -55,5 +61,10 @@
         android:title="@string/hideBuildVersion_title"
         android:summary="@string/hideBuildVersion_summary"
         android:defaultValue="true" />
+
+    <EditTextPreference
+        android:key="trick_customCarrierText"
+        android:title="@string/customCarrierText_title"
+        android:defaultValue="" />
 
 </PreferenceScreen>

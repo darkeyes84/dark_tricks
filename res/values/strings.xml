@@ -1,7 +1,9 @@
 <resources>
     <string name="app_name">Dark Tricks</string>
-    <string name="hideLtePlus_title">Hide LTE+</string>
-    <string name="hideLtePlus_summary">Always display LTE even when LTE+ is available</string>
+    <string name="show4gForLte_title">Show 4G</string>
+    <string name="show4gForLte_summary">Always show 4G instead of LTE</string>
+    <string name="hideLtePlus_title">Hide LTE+/4G+</string>
+    <string name="hideLtePlus_summary">Always display LTE/4G even when LTE+/4G+ is available</string>
     <string name="useKeyguardPhone_title">Use phone on lockscreen</string>
     <string name="useKeyguardPhone_summary">Replace voice assist shortcut on the lockscreen with phone shortcut</string>
     <string name="hideNextAlarm_title">Hide next alarm</string>
@@ -18,4 +20,5 @@
     <string name="hideCert_summary">Remove \"Network may be monitored\" from the quick settings</string>
     <string name="hideBuildVersion_title">Hide build version</string>
     <string name="hideBuildVersion_summary">Remove build version from the quick settings when developer options are enabled</string>
+    <string name="customCarrierText_title">Edit carrier text</string>
 </resources>
