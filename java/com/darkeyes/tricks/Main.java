@@ -46,7 +46,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private InputMethodService mService;
     private boolean mVolumeLongPress;
     private boolean mPowerLongPress;
-    private boolean mTorchLit;
+    private boolean mTorchEnabled;
     private boolean mTorchAvailable;
     private AudioManager mAudioManager;
     private PowerManager mPowerManager;
@@ -410,13 +410,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
 
                                 try {
-                                    if (!mTorchLit) {
-                                        mTorchLit = true;
-                                        mCameraManager.setTorchMode(mCameraId, true);
-                                    } else {
-                                        mTorchLit = false;
-                                        mCameraManager.setTorchMode(mCameraId, false);
-                                    }
+                                    mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                    mTorchEnabled = !mTorchEnabled;
                                 } catch (Exception e) {
                                 }
                             };

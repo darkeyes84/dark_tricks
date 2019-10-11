@@ -2,6 +2,7 @@ package com.darkeyes.tricks;
 
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.EditTextPreference;
@@ -16,6 +17,8 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
 
     private EditTextPreference customCarrierText;
     private ListPreference cursorControl;
+    private PackageManager mPackageManager;
+    private boolean mTorchAvailable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +34,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         SwitchPreference useKeyguardPhone = (SwitchPreference) findPreference("trick_useKeyguardPhone");
         SwitchPreference navbarAlwaysRight = (SwitchPreference) findPreference("trick_navbarAlwaysRight");
         SwitchPreference hideBuildVersion = (SwitchPreference) findPreference("trick_hideBuildVersion");
+        SwitchPreference powerTorch = (SwitchPreference) findPreference("trick_powerTorch");
         customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
         cursorControl = (ListPreference) findPreference("trick_cursorControl");
 
@@ -48,6 +52,9 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         }
         if (Build.VERSION.SDK_INT != 29) {
             prefScreen.removePreference(hideBuildVersion);
+        }
+        if (!torchAvailable()) {
+            prefScreen.removePreference(powerTorch);
         }
     }
 
@@ -94,5 +101,17 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         }
 
         cursorControl.setSummary(cursorControl.getEntry());
+    }
+
+    private boolean torchAvailable() {
+        if (mPackageManager == null) {
+            mPackageManager = getPackageManager();
+            try {
+                mTorchAvailable = mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH);
+            } catch (Throwable t) {
+                mTorchAvailable = false;
+            }
+        }
+        return mTorchAvailable;
     }
 }
