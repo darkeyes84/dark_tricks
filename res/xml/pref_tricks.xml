@@ -62,6 +62,25 @@
         android:summary="@string/hideBuildVersion_summary"
         android:defaultValue="true" />
 
+    <SwitchPreference
+        android:key="trick_powerTorch"
+        android:title="@string/powerTorch_title"
+        android:summary="@string/powerTorch_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
+        android:key="trick_skipTrack"
+        android:title="@string/skipTrack_title"
+        android:summary="@string/skipTrack_summary"
+        android:defaultValue="true" />
+
+    <ListPreference
+        android:key="trick_cursorControl"
+        android:title="@string/cursorControl_title"
+        android:entries="@array/cursorControl_entries"
+        android:entryValues="@array/cursorControl_values"
+        android:defaultValue="0" />
+
     <EditTextPreference
         android:key="trick_customCarrierText"
         android:title="@string/customCarrierText_title"

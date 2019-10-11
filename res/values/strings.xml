@@ -21,4 +21,12 @@
     <string name="hideBuildVersion_title">Hide build version</string>
     <string name="hideBuildVersion_summary">Remove build version from the quick settings when developer options are enabled</string>
     <string name="customCarrierText_title">Edit carrier text</string>
+    <string name="cursorControl_title">Volume keys control cursor</string>
+    <string name="cursorControl_disabled">Disabled</string>
+    <string name="cursorControl_upleft">Volume up/down moves cursor left/right</string>
+    <string name="cursorControl_upright">Volume up/down moves cursor right/left</string>
+    <string name="skipTrack_title">Volume keys skip track</string>
+    <string name="skipTrack_summary">Skip track by long pressing volume keys while screen is off</string>
+    <string name="powerTorch_title">Power key toggles torch</string>
+    <string name="powerTorch_summary">Toggle torch by long pressing power key while screen is off</string>
 </resources>

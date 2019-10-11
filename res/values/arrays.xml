@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="cursorControl_entries" translatable="false">
+        <item>@string/cursorControl_disabled</item>
+        <item>@string/cursorControl_upleft</item>
+        <item>@string/cursorControl_upright</item>
+    </string-array>
+
+    <string-array name="cursorControl_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
+</resources>

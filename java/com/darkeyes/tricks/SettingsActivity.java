@@ -5,6 +5,7 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.EditTextPreference;
+import android.preference.ListPreference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
@@ -14,6 +15,7 @@ import java.io.File;
 public class SettingsActivity extends PreferenceActivity implements OnSharedPreferenceChangeListener {
 
     private EditTextPreference customCarrierText;
+    private ListPreference cursorControl;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +32,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         SwitchPreference navbarAlwaysRight = (SwitchPreference) findPreference("trick_navbarAlwaysRight");
         SwitchPreference hideBuildVersion = (SwitchPreference) findPreference("trick_hideBuildVersion");
         customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
+        cursorControl = (ListPreference) findPreference("trick_cursorControl");
 
         getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
         updateSummary();
@@ -89,5 +92,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         } else {
             customCarrierText.setSummary(carrierText);
         }
+
+        cursorControl.setSummary(cursorControl.getEntry());
     }
 }

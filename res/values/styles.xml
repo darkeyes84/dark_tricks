@@ -1,5 +1,7 @@
 <resources>
 
-    <style name="AppTheme" parent="android:Theme.DeviceDefault.Light"/>
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight">
+        <item name="colorAccent">#ff4285F4</item>
+    </style>
 
 </resources>
