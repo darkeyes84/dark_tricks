@@ -3,6 +3,10 @@ package com.darkeyes.tricks;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.inputmethodservice.InputMethodService;
@@ -49,11 +53,16 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private boolean mTorchEnabled;
     private boolean mTorchAvailable;
     private AudioManager mAudioManager;
-    private PowerManager mPowerManager;
     private CameraManager mCameraManager;
+    private PowerManager mPowerManager;
     private PowerManager.WakeLock mWakeLock;
     private Context mContext;
     private Handler mHandler;
+    private boolean mTorchProximity;
+    private SensorEventListener mProximityListener;
+    private SensorManager mSensorManager;
+    private Sensor mProximitySensor;
+    private PowerManager.WakeLock mProximityWakeLock;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -406,13 +415,49 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         if (pref.getBoolean("trick_powerTorch", true)) {
 
                             Runnable mPowerDownLongPress = () -> {
-                                mPowerLongPress = true;
-                                XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                if (!mTorchEnabled) {
+                                    if (mProximityListener == null) {
+                                        synchronized (mProximityWakeLock) {
+                                            mProximityWakeLock.acquire();
+                                            mProximityListener = new SensorEventListener() {
+                                                @Override
+                                                public void onSensorChanged(SensorEvent event) {
+                                                    if (mProximityWakeLock.isHeld()) {
+                                                        mProximityWakeLock.release();
+                                                    }
+                                                    if (mProximityListener != null) {
+                                                        mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
+                                                        mProximityListener = null;
+                                                    }
+                                                    if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                        mPowerLongPress = true;
+                                                        XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
 
-                                try {
-                                    mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
-                                    mTorchEnabled = !mTorchEnabled;
-                                } catch (Exception e) {
+                                                        try {
+                                                            mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                                            mTorchEnabled = !mTorchEnabled;
+                                                        } catch (Exception e) {
+                                                        }
+                                                    }
+                                                }
+
+                                                @Override
+                                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                                }
+                                            };
+                                            mSensorManager.registerListener(mProximityListener,
+                                                    mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                        }
+                                    }
+                                } else {
+                                    mPowerLongPress = true;
+                                    XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+
+                                    try {
+                                        mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                        mTorchEnabled = !mTorchEnabled;
+                                    } catch (Exception e) {
+                                    }
                                 }
                             };
 
@@ -487,12 +532,20 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             }
 
                             if (keyCode == KeyEvent.KEYCODE_POWER && !mPowerManager.isInteractive() && (event.getSource() != InputDevice.SOURCE_UNKNOWN) && mTorchAvailable) {
+                                if (mSensorManager == null) {
+                                    mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
+                                }
+                                if (mProximitySensor == null) {
+                                    mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+                                }
+                                mProximityWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:ProximityWakeLock");
+                                mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:PowerTorch");
+
                                 Runnable mPowerDownLongPress = (Runnable) getAdditionalInstanceField(param.thisObject, "mPowerDownLongPress");
                                 if (event.getAction() == KeyEvent.ACTION_DOWN) {
                                     if (event.getRepeatCount() == 0) {
                                         mPowerLongPress = false;
-                                        mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:PowerTorch");
-                                        mWakeLock.acquire(1000);
+                                        mWakeLock.acquire();
                                         mHandler.postDelayed(mPowerDownLongPress, ViewConfiguration.getLongPressTimeout());
                                     }
                                     param.setResult(0);
@@ -510,10 +563,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                                     KeyEvent.KEYCODE_POWER, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_UNKNOWN), 0);
                                         });
                                     }
-                                    if (mWakeLock != null && mWakeLock.isHeld()) {
+                                    if (mWakeLock.isHeld()) {
                                         mWakeLock.release();
                                     }
-                                    mWakeLock = null;
                                 }
                             }
                         }
