@@ -11,10 +11,13 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.inputmethodservice.InputMethodService;
 import android.media.AudioManager;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Message;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.telephony.TelephonyManager;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
@@ -30,6 +33,7 @@ import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
+import static de.robv.android.xposed.XposedBridge.invokeOriginalMethod;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.getAdditionalInstanceField;
 import static de.robv.android.xposed.XposedHelpers.getIntField;
@@ -63,6 +67,12 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private SensorManager mSensorManager;
     private Sensor mProximitySensor;
     private PowerManager.WakeLock mProximityWakeLock;
+    private Context mWakeUpContext;
+    private Handler mWakeUpHandler;
+    private TelephonyManager mTelephonyManager;
+    private SensorEventListener mWakeUpListener;
+    private PowerManager.WakeLock mWakeUpWakeLock;
+    private int MSG_WAKE_UP = 100;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -430,37 +440,40 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                             Runnable mPowerDownLongPress = () -> {
                                 if (!mTorchEnabled) {
-                                    if (mProximityListener == null) {
-                                        synchronized (mProximityWakeLock) {
-                                            if (!mProximityWakeLock.isHeld()) mProximityWakeLock.acquire();
-                                            mProximityListener = new SensorEventListener() {
-                                                @Override
-                                                public void onSensorChanged(SensorEvent event) {
-                                                    if (mProximityWakeLock.isHeld()) mProximityWakeLock.release();
-                                                    if (mProximityListener != null) {
-                                                        mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
-                                                        mProximityListener = null;
-                                                    }
-                                                    if (event.values[0] >= mProximitySensor.getMaximumRange()) {
-                                                        mPowerLongPress = true;
-                                                        XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
-
-                                                        try {
-                                                            mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
-                                                            mTorchEnabled = !mTorchEnabled;
-                                                        } catch (Exception e) {
-                                                        }
-                                                    }
-                                                }
-
-                                                @Override
-                                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                                }
-                                            };
-                                            mSensorManager.registerListener(mProximityListener,
-                                                    mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                    synchronized (mProximityWakeLock) {
+                                        if (!mProximityWakeLock.isHeld()) mProximityWakeLock.acquire();
+                                        if (mProximityListener != null) {
+                                            mSensorManager.unregisterListener(mProximityListener);
+                                            mProximityListener = null;
                                         }
+                                        mProximityListener = new SensorEventListener() {
+                                            @Override
+                                            public void onSensorChanged(SensorEvent event) {
+                                                if (mProximityWakeLock.isHeld())
+                                                    mProximityWakeLock.release();
+                                                if (mProximityListener != null) {
+                                                    mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
+                                                    mProximityListener = null;
+                                                }
+                                                if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                    mPowerLongPress = true;
+                                                    XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+
+                                                    try {
+                                                        mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                                        mTorchEnabled = !mTorchEnabled;
+                                                    } catch (Exception e) {
+                                                    }
+                                                }
+                                            }
+
+                                            @Override
+                                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                            }
+                                        };
                                     }
+                                    mSensorManager.registerListener(mProximityListener,
+                                            mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
                                 } else {
                                     mPowerLongPress = true;
                                     XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
@@ -543,7 +556,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             if (keyCode == KeyEvent.KEYCODE_POWER && !mPowerManager.isInteractive() && (event.getSource() != InputDevice.SOURCE_UNKNOWN) && mTorchAvailable) {
                                 if (mSensorManager == null) mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
                                 if (mProximitySensor == null) mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-                                if (mProximityWakeLock == null) mProximityWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:ProximityWakeLock");
+                                if (mProximityWakeLock == null) mProximityWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:TorchWakeLock");
                                 if (mWakeLock == null) mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:PowerTorch");
 
                                 Runnable mPowerDownLongPress = (Runnable) getAdditionalInstanceField(param.thisObject, "mPowerDownLongPress");
@@ -573,6 +586,103 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             }
                         }
 
+                    }
+                });
+            }
+
+            if (pref.getBoolean("trick_proximityWakeUp", true)) {
+
+                findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", "com.android.internal.app.IAppOpsService", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        mWakeUpContext = (Context) getObjectField(param.thisObject, "mContext");
+                        mWakeUpHandler = (Handler) getObjectField(param.thisObject, "mHandler");
+                        if (mSensorManager == null) mSensorManager = (SensorManager) mWakeUpContext.getSystemService(Context.SENSOR_SERVICE);
+                        if (mProximitySensor == null) mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+                        if (mPowerManager == null) mPowerManager = (PowerManager) mWakeUpContext.getSystemService(Context.POWER_SERVICE);
+                        if (mTelephonyManager == null) mTelephonyManager = (TelephonyManager) mWakeUpContext.getSystemService(Context.TELEPHONY_SERVICE);
+                        mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
+                    }
+                });
+
+                findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeUpInternal", long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(final MethodHookParam param) {
+
+                        Runnable mWakeUp = () -> {
+                            long ident = Binder.clearCallingIdentity();
+                            try {
+                                invokeOriginalMethod(param.method, param.thisObject, param.args);
+                            } catch (Throwable t) {
+                            } finally {
+                                Binder.restoreCallingIdentity(ident);
+                            }
+                        };
+
+                        setAdditionalInstanceField(param.thisObject, "mWakeUp", mWakeUp);
+
+                        if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING) {
+
+                            if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                param.setResult(null);
+                                return;
+                            }
+                            final Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                            msg.obj = mWakeUp;
+                            mWakeUpHandler.sendMessageDelayed(msg, 100);
+
+                            synchronized (mWakeUpWakeLock) {
+                                if (!mWakeUpWakeLock.isHeld()) mWakeUpWakeLock.acquire();
+                                if (mWakeUpListener != null) {
+                                    mSensorManager.unregisterListener(mWakeUpListener);
+                                    mWakeUpListener = null;
+                                }
+                                mWakeUpListener = new SensorEventListener() {
+                                    @Override
+                                    public void onSensorChanged(SensorEvent event) {
+                                        if (mWakeUpWakeLock.isHeld()) mWakeUpWakeLock.release();
+                                        if (mWakeUpListener != null) {
+                                            mSensorManager.unregisterListener(mWakeUpListener);
+                                            mWakeUpListener = null;
+                                        }
+                                        if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                            param.setResult(null);
+                                            return;
+                                        }
+                                        mWakeUpHandler.removeMessages(MSG_WAKE_UP);
+                                        if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                            mWakeUp.run();
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                    }
+                                };
+                                mSensorManager.registerListener(mWakeUpListener,
+                                        mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                            }
+                            param.setResult(null);
+                        }
+                    }
+                });
+
+                findAndHookMethod("com.android.server.power.PowerManagerService$PowerManagerHandler", param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(final MethodHookParam param) {
+                        Message msg = (Message) param.args[0];
+                        Runnable mWakeUp = (Runnable) getAdditionalInstanceField(param.thisObject, "mWakeUp");
+
+                        if (msg.what == MSG_WAKE_UP) {
+                            synchronized (mWakeUpWakeLock) {
+                                if (mWakeUpWakeLock.isHeld()) mWakeUpWakeLock.release();
+                                if (mWakeUpListener != null) {
+                                    mSensorManager.unregisterListener(mWakeUpListener);
+                                    mWakeUpListener = null;
+                                }
+                            }
+                            mWakeUp.run();
+                        }
                     }
                 });
             }

@@ -29,4 +29,6 @@
     <string name="skipTrack_summary">Skip track by long pressing volume keys while screen is off</string>
     <string name="powerTorch_title">Power key toggles torch</string>
     <string name="powerTorch_summary">Toggle torch by long pressing power key while screen is off</string>
+    <string name="proximityWakeUp_title">Prevent accidental wake up</string>
+    <string name="proximityWakeUp_summary">Check the proximity sensor before waking up the phone</string>
 </resources>

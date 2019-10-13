@@ -63,6 +63,12 @@
         android:defaultValue="true" />
 
     <SwitchPreference
+        android:key="trick_proximityWakeUp"
+        android:title="@string/proximityWakeUp_title"
+        android:summary="@string/proximityWakeUp_summary"
+        android:defaultValue="true" />
+
+    <SwitchPreference
         android:key="trick_powerTorch"
         android:title="@string/powerTorch_title"
         android:summary="@string/powerTorch_summary"
