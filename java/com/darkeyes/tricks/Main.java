@@ -30,10 +30,10 @@ import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
-import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import static de.robv.android.xposed.XposedBridge.invokeOriginalMethod;
+import static de.robv.android.xposed.XposedHelpers.callMethod;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.getAdditionalInstanceField;
 import static de.robv.android.xposed.XposedHelpers.getIntField;
@@ -91,10 +91,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onKeyDown", int.class, KeyEvent.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(final MethodHookParam param) {
-                    if (mService == null) {
-                        return;
-                    }
-
                     int keyCode = ((KeyEvent) param.args[1]).getKeyCode();
                     if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
                         if (mService.isInputViewShown()) {
@@ -125,10 +121,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onKeyUp", int.class, KeyEvent.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(final MethodHookParam param) {
-                    if (mService == null) {
-                        return;
-                    }
-
                     int keyCode = ((KeyEvent) param.args[1]).getKeyCode();
                     if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
                         if (mService.isInputViewShown()) {
@@ -429,11 +421,19 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                     @Override
                                     public void onTorchModeChanged(String cameraId, boolean enabled) {
                                         mTorchEnabled = enabled;
+                                        if (mProximityListener != null) {
+                                            mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
+                                            mProximityListener = null;
+                                        }
                                     }
 
                                     @Override
                                     public void onTorchModeUnavailable(String cameraId) {
                                         mTorchEnabled = false;
+                                        if (mProximityListener != null) {
+                                            mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
+                                            mProximityListener = null;
+                                        }
                                     }
                                 };
                             }
@@ -449,15 +449,14 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                         mProximityListener = new SensorEventListener() {
                                             @Override
                                             public void onSensorChanged(SensorEvent event) {
-                                                if (mProximityWakeLock.isHeld())
-                                                    mProximityWakeLock.release();
+                                                if (mProximityWakeLock.isHeld()) mProximityWakeLock.release();
                                                 if (mProximityListener != null) {
                                                     mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
                                                     mProximityListener = null;
                                                 }
                                                 if (event.values[0] >= mProximitySensor.getMaximumRange()) {
                                                     mPowerLongPress = true;
-                                                    XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
 
                                                     try {
                                                         mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
@@ -476,7 +475,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                             mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
                                 } else {
                                     mPowerLongPress = true;
-                                    XposedHelpers.callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
 
                                     try {
                                         mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
@@ -511,7 +510,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                     keyCode == KeyEvent.KEYCODE_VOLUME_UP) &&
                                     (event.getFlags() & KeyEvent.FLAG_FROM_SYSTEM) != 0 &&
                                     !mPowerManager.isInteractive() &&
-                                    mAudioManager != null && (mAudioManager.isMusicActive() || (boolean) XposedHelpers.callMethod(mAudioManager, "isMusicActiveRemotely"))) {
+                                    (mAudioManager.isMusicActive() || (boolean) callMethod(mAudioManager, "isMusicActiveRemotely"))) {
                                 if (event.getAction() == KeyEvent.ACTION_DOWN) {
                                     mVolumeLongPress = false;
                                     mHandler.postDelayed(keyCode == KeyEvent.KEYCODE_VOLUME_UP ? mVolumeUpLongPress :
@@ -575,9 +574,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                         param.setResult(0);
                                     } else {
                                         mHandler.post(() -> {
-                                            XposedHelpers.callMethod(mContext.getSystemService(Context.INPUT_SERVICE), "injectInputEvent", new KeyEvent(SystemClock.uptimeMillis() - 50, SystemClock.uptimeMillis() - 50, KeyEvent.ACTION_DOWN,
+                                            callMethod(mContext.getSystemService(Context.INPUT_SERVICE), "injectInputEvent", new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN,
                                                     KeyEvent.KEYCODE_POWER, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_UNKNOWN), 0);
-                                            XposedHelpers.callMethod(mContext.getSystemService(Context.INPUT_SERVICE), "injectInputEvent", new KeyEvent(SystemClock.uptimeMillis() - 50, SystemClock.uptimeMillis() - 25, KeyEvent.ACTION_UP,
+                                            callMethod(mContext.getSystemService(Context.INPUT_SERVICE), "injectInputEvent", new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_UP,
                                                     KeyEvent.KEYCODE_POWER, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_UNKNOWN), 0);
                                         });
                                     }
@@ -621,7 +620,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                         setAdditionalInstanceField(param.thisObject, "mWakeUp", mWakeUp);
 
-                        if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING) {
+                        if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC") && (int)param.args[1] != 5) {
 
                             if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
                                 param.setResult(null);
