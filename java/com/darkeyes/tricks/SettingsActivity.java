@@ -17,6 +17,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
 
     private EditTextPreference customCarrierText;
     private ListPreference cursorControl;
+    private ListPreference lessNotifications;
     private PackageManager mPackageManager;
     private boolean mTorchAvailable;
 
@@ -37,6 +38,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         SwitchPreference powerTorch = (SwitchPreference) findPreference("trick_powerTorch");
         customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
         cursorControl = (ListPreference) findPreference("trick_cursorControl");
+        lessNotifications = (ListPreference) findPreference("trick_lessNotifications");
 
         getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
         updateSummary();
@@ -101,6 +103,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         }
 
         cursorControl.setSummary(cursorControl.getEntry());
+        lessNotifications.setSummary(lessNotifications.getEntry());
     }
 
     private boolean torchAvailable() {

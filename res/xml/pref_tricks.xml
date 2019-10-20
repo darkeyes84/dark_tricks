@@ -87,6 +87,13 @@
         android:entryValues="@array/cursorControl_values"
         android:defaultValue="0" />
 
+    <ListPreference
+        android:key="trick_lessNotifications"
+        android:title="@string/lessNotifications_title"
+        android:entries="@array/lessNotifications_entries"
+        android:entryValues="@array/lessNotifications_values"
+        android:defaultValue="0" />
+
     <EditTextPreference
         android:key="trick_customCarrierText"
         android:title="@string/customCarrierText_title"

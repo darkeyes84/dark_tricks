@@ -17,7 +17,9 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.service.notification.StatusBarNotification;
 import android.telephony.TelephonyManager;
+import android.util.ArrayMap;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
@@ -73,12 +75,13 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private SensorEventListener mWakeUpListener;
     private PowerManager.WakeLock mWakeUpWakeLock;
     private int MSG_WAKE_UP = 100;
+    private ArrayMap<String, Long> mLastTimestamps = new ArrayMap<>();
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
         pref = new XSharedPreferences(prefFile);
 
-        final int cursorControl = Integer.parseInt(pref.getString("trick_cursorControl", "0"));
+        int cursorControl = Integer.parseInt(pref.getString("trick_cursorControl", "0"));
         if (cursorControl != 0) {
 
             findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onCreate", new XC_MethodHook() {
@@ -90,7 +93,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onKeyDown", int.class, KeyEvent.class, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(final MethodHookParam param) {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     int keyCode = ((KeyEvent) param.args[1]).getKeyCode();
                     if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
                         if (mService.isInputViewShown()) {
@@ -120,7 +123,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onKeyUp", int.class, KeyEvent.class, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(final MethodHookParam param) {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     int keyCode = ((KeyEvent) param.args[1]).getKeyCode();
                     if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
                         if (mService.isInputViewShown()) {
@@ -132,7 +135,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
         }
     }
 
-    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam param) {
+    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam param) {
 
         if (param.packageName.equals("com.android.systemui")) {
 
@@ -321,21 +324,21 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     });
 
                     findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "layoutNavigationBar", "com.android.server.wm.DisplayFrames", int.class, "android.graphics.Rect", boolean.class, boolean.class, boolean.class, boolean.class, new XC_MethodHook() {
-                        boolean mTampered = false;
+                        boolean tampered = false;
 
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
                             if (mRotation == 3) {
                                 setIntField(mObject, "mRotation", 1);
-                                mTampered = true;
+                                tampered = true;
                             }
                         }
 
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
-                            if (mTampered) {
+                            if (tampered) {
                                 setIntField(mObject, "mRotation", 3);
-                                mTampered = false;
+                                tampered = false;
                             }
                         }
                     });
@@ -606,7 +609,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                 findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeUpInternal", long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(final MethodHookParam param) {
+                    protected void beforeHookedMethod(MethodHookParam param) {
 
                         Runnable mWakeUp = () -> {
                             long ident = Binder.clearCallingIdentity();
@@ -626,7 +629,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 param.setResult(null);
                                 return;
                             }
-                            final Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                            Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
                             msg.obj = mWakeUp;
                             mWakeUpHandler.sendMessageDelayed(msg, 100);
 
@@ -668,7 +671,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                 findAndHookMethod("com.android.server.power.PowerManagerService$PowerManagerHandler", param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(final MethodHookParam param) {
+                    protected void beforeHookedMethod(MethodHookParam param) {
                         Message msg = (Message) param.args[0];
                         Runnable mWakeUp = (Runnable) getAdditionalInstanceField(param.thisObject, "mWakeUp");
 
@@ -684,6 +687,27 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
                     }
                 });
+            }
+
+            int timeout = Integer.parseInt(pref.getString("trick_lessNotifications", "0"));
+            if (timeout != 0) {
+
+                findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
+                        Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
+                        long currentTime = SystemClock.elapsedRealtime();
+
+                        if (lastTime == null || currentTime - lastTime > timeout) {
+                            mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
+                        } else {
+                            param.setResult(true);
+                        }
+                    }
+
+                });
+
             }
 
         } else if (param.packageName.equals("com.google.android.apps.nexuslauncher")) {

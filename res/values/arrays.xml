@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string-array name="cursorControl_entries" translatable="false">
+    <string-array name="cursorControl_entries">
         <item>@string/cursorControl_disabled</item>
         <item>@string/cursorControl_upleft</item>
         <item>@string/cursorControl_upright</item>
@@ -10,6 +10,24 @@
         <item>0</item>
         <item>1</item>
         <item>2</item>
+    </string-array>
+
+    <string-array name="lessNotifications_entries">
+        <item>@string/lessNotifications_disabled</item>
+        <item>@string/lessNotifications_5s</item>
+        <item>@string/lessNotifications_10s</item>
+        <item>@string/lessNotifications_30s</item>
+        <item>@string/lessNotifications_1m</item>
+        <item>@string/lessNotifications_2m</item>
+    </string-array>
+
+    <string-array name="lessNotifications_values" translatable="false">
+        <item>0</item>
+        <item>5000</item>
+        <item>10000</item>
+        <item>30000</item>
+        <item>60000</item>
+        <item>120000</item>
     </string-array>
 
 </resources>
