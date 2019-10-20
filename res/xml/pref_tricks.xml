@@ -80,18 +80,24 @@
         android:summary="@string/skipTrack_summary"
         android:defaultValue="true" />
 
-    <ListPreference
-        android:key="trick_cursorControl"
-        android:title="@string/cursorControl_title"
-        android:entries="@array/cursorControl_entries"
-        android:entryValues="@array/cursorControl_values"
-        android:defaultValue="0" />
+    <SwitchPreference
+        android:key="trick_screenOffNotifications"
+        android:title="@string/screenOffNotifications_title"
+        android:summary="@string/screenOffNotifications_summary"
+        android:defaultValue="false" />
 
     <ListPreference
         android:key="trick_lessNotifications"
         android:title="@string/lessNotifications_title"
         android:entries="@array/lessNotifications_entries"
         android:entryValues="@array/lessNotifications_values"
+        android:defaultValue="0" />
+
+    <ListPreference
+        android:key="trick_cursorControl"
+        android:title="@string/cursorControl_title"
+        android:entries="@array/cursorControl_entries"
+        android:entryValues="@array/cursorControl_values"
         android:defaultValue="0" />
 
     <EditTextPreference

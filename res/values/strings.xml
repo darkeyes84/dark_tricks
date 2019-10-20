@@ -31,11 +31,13 @@
     <string name="powerTorch_summary">Toggle torch by long pressing power key while screen is off</string>
     <string name="proximityWakeUp_title">Prevent accidental wake up</string>
     <string name="proximityWakeUp_summary">Check the proximity sensor before waking up the phone</string>
-    <string name="lessNotifications_title">Less frequent notifications</string>
+    <string name="lessNotifications_title">Less frequent notifications (sound and vibration)</string>
     <string name="lessNotifications_disabled">Disabled</string>
     <string name="lessNotifications_5s">Mute for 5 seconds</string>
     <string name="lessNotifications_10s">Mute for 10 seconds</string>
     <string name="lessNotifications_30s">Mute for 30 seconds</string>
     <string name="lessNotifications_1m">Mute for 1 minute</string>
     <string name="lessNotifications_2m">Mute for 2 minutes</string>
+    <string name="screenOffNotifications_title">Screen off notifications only</string>
+    <string name="screenOffNotifications_summary">Prevent sound and vibration when screen is on</string>
 </resources>
