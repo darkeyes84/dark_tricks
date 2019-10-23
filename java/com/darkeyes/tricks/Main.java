@@ -443,48 +443,55 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             }
 
                             Runnable mPowerDownLongPress = () -> {
-                                if (!mTorchEnabled) {
-                                    synchronized (mProximityWakeLock) {
-                                        if (!mProximityWakeLock.isHeld()) mProximityWakeLock.acquire();
-                                        if (mProximityListener != null) {
-                                            mSensorManager.unregisterListener(mProximityListener);
-                                            mProximityListener = null;
-                                        }
-                                        mProximityListener = new SensorEventListener() {
-                                            @Override
-                                            public void onSensorChanged(SensorEvent event) {
-                                                if (mProximityWakeLock.isHeld()) mProximityWakeLock.release();
-                                                if (mProximityListener != null) {
-                                                    mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
-                                                    mProximityListener = null;
-                                                }
-                                                if (event.values[0] >= mProximitySensor.getMaximumRange()) {
-                                                    mPowerLongPress = true;
-                                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                if (mPowerManager.isInteractive()) {
+                                    mPowerLongPress = true;
+                                    callMethod(param.thisObject, "powerLongPress");
+                                } else {
+                                    if (!mTorchEnabled) {
+                                        synchronized (mProximityWakeLock) {
+                                            if (!mProximityWakeLock.isHeld())
+                                                mProximityWakeLock.acquire();
+                                            if (mProximityListener != null) {
+                                                mSensorManager.unregisterListener(mProximityListener);
+                                                mProximityListener = null;
+                                            }
+                                            mProximityListener = new SensorEventListener() {
+                                                @Override
+                                                public void onSensorChanged(SensorEvent event) {
+                                                    if (mProximityWakeLock.isHeld())
+                                                        mProximityWakeLock.release();
+                                                    if (mProximityListener != null) {
+                                                        mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
+                                                        mProximityListener = null;
+                                                    }
+                                                    if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                        mPowerLongPress = true;
+                                                        callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
 
-                                                    try {
-                                                        mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
-                                                        mTorchEnabled = !mTorchEnabled;
-                                                    } catch (Exception e) {
+                                                        try {
+                                                            mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                                            mTorchEnabled = !mTorchEnabled;
+                                                        } catch (Exception e) {
+                                                        }
                                                     }
                                                 }
-                                            }
 
-                                            @Override
-                                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                            }
-                                        };
-                                    }
-                                    mSensorManager.registerListener(mProximityListener,
-                                            mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
-                                } else {
-                                    mPowerLongPress = true;
-                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                                @Override
+                                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                                }
+                                            };
+                                        }
+                                        mSensorManager.registerListener(mProximityListener,
+                                                mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                    } else {
+                                        mPowerLongPress = true;
+                                        callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
 
-                                    try {
-                                        mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
-                                        mTorchEnabled = !mTorchEnabled;
-                                    } catch (Exception e) {
+                                        try {
+                                            mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                            mTorchEnabled = !mTorchEnabled;
+                                        } catch (Exception e) {
+                                        }
                                     }
                                 }
                             };
@@ -516,9 +523,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                     !mPowerManager.isInteractive() &&
                                     (mAudioManager.isMusicActive() || (boolean) callMethod(mAudioManager, "isMusicActiveRemotely"))) {
                                 if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                                    mVolumeLongPress = false;
-                                    mHandler.postDelayed(keyCode == KeyEvent.KEYCODE_VOLUME_UP ? mVolumeUpLongPress :
-                                            mVolumeDownLongPress, ViewConfiguration.getLongPressTimeout());
+                                    if (event.getRepeatCount() == 0) {
+                                        mVolumeLongPress = false;
+                                        mHandler.postDelayed(keyCode == KeyEvent.KEYCODE_VOLUME_UP ? mVolumeUpLongPress :
+                                                mVolumeDownLongPress, ViewConfiguration.getLongPressTimeout());
+                                    }
                                 } else {
                                     mHandler.removeCallbacks(mVolumeUpLongPress);
                                     mHandler.removeCallbacks(mVolumeDownLongPress);
@@ -556,7 +565,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 }
                             }
 
-                            if (keyCode == KeyEvent.KEYCODE_POWER && !mPowerManager.isInteractive() && (event.getSource() != InputDevice.SOURCE_UNKNOWN) && mTorchAvailable) {
+                            if (keyCode == KeyEvent.KEYCODE_POWER && (event.getSource() != InputDevice.SOURCE_UNKNOWN) && mTorchAvailable) {
                                 if (mSensorManager == null) mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
                                 if (mProximitySensor == null) mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
                                 if (mProximityWakeLock == null) mProximityWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:TorchWakeLock");
@@ -569,13 +578,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                         if (!mWakeLock.isHeld()) mWakeLock.acquire();
                                         mHandler.postDelayed(mPowerDownLongPress, ViewConfiguration.getLongPressTimeout());
                                     }
-                                    param.setResult(0);
                                 } else {
                                     mHandler.removeCallbacks(mPowerDownLongPress);
 
                                     if (mPowerLongPress) {
                                         mPowerLongPress = false;
-                                        param.setResult(0);
                                     } else {
                                         mHandler.post(() -> {
                                             callMethod(mContext.getSystemService(Context.INPUT_SERVICE), "injectInputEvent", new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN,
@@ -586,6 +593,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                     }
                                     if (mWakeLock.isHeld()) mWakeLock.release();
                                 }
+                                param.setResult(0);
                             }
                         }
 
@@ -604,7 +612,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         if (mProximitySensor == null) mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
                         if (mPowerManager == null) mPowerManager = (PowerManager) mWakeUpContext.getSystemService(Context.POWER_SERVICE);
                         if (mTelephonyManager == null) mTelephonyManager = (TelephonyManager) mWakeUpContext.getSystemService(Context.TELEPHONY_SERVICE);
-                        mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
+                        if (mWakeUpWakeLock == null) mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
                     }
                 });
 
@@ -688,6 +696,15 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
                     }
                 });
+
+                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if (!mPowerManager.isInteractive()) {
+                            param.setResult(null);
+                        }
+                    }
+                });
             }
 
             int timeout = Integer.parseInt(pref.getString("trick_lessNotifications", "0"));
@@ -696,17 +713,20 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        if (pref.getBoolean("trick_screenOffNotifications", false) && getBooleanField(param.thisObject, "mScreenOn")) {
-                            param.setResult(true);
-                        } else if (timeout != 0) {
-                            StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
-                            Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
-                            long currentTime = SystemClock.elapsedRealtime();
-
-                            if (lastTime == null || currentTime - lastTime > timeout) {
-                                mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
-                            } else {
+                        Object mNotificationLock = getObjectField(param.thisObject, "mNotificationLock");
+                        synchronized (mNotificationLock) {
+                            if (pref.getBoolean("trick_screenOffNotifications", false) && getBooleanField(param.thisObject, "mScreenOn")) {
                                 param.setResult(true);
+                            } else if (timeout != 0) {
+                                StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
+                                Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
+                                long currentTime = SystemClock.elapsedRealtime();
+
+                                if (lastTime == null || currentTime - lastTime > timeout) {
+                                    mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
+                                } else {
+                                    param.setResult(true);
+                                }
                             }
                         }
                     }
