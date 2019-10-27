@@ -712,20 +712,22 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                 findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        Object mNotificationLock = getObjectField(param.thisObject, "mNotificationLock");
-                        synchronized (mNotificationLock) {
-                            if (pref.getBoolean("trick_screenOffNotifications", false) && getBooleanField(param.thisObject, "mScreenOn")) {
-                                param.setResult(true);
-                            } else if (timeout != 0) {
-                                StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
-                                Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
-                                long currentTime = SystemClock.elapsedRealtime();
-
-                                if (lastTime == null || currentTime - lastTime > timeout) {
-                                    mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
-                                } else {
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        if ((boolean) param.getResult() == false) {
+                            Object mNotificationLock = getObjectField(param.thisObject, "mNotificationLock");
+                            synchronized (mNotificationLock) {
+                                if (pref.getBoolean("trick_screenOffNotifications", false) && getBooleanField(param.thisObject, "mScreenOn")) {
                                     param.setResult(true);
+                                } else if (timeout != 0) {
+                                    StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
+                                    Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
+                                    long currentTime = SystemClock.elapsedRealtime();
+
+                                    if (lastTime == null || currentTime - lastTime > timeout) {
+                                        mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
+                                    } else {
+                                        param.setResult(true);
+                                    }
                                 }
                             }
                         }
