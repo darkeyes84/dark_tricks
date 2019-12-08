@@ -1,0 +1,40 @@
+apply plugin: 'com.android.application'
+
+android {
+    signingConfigs {
+        release {
+            keyAlias 'dark_eyes'
+            keyPassword 'JFBgouv01!'
+            storeFile file('/home/dark_eyes/apktool/dark_eyes.jks')
+            storePassword 'JFBgouv01!'
+        }
+    }
+    compileSdkVersion 29
+    defaultConfig {
+        applicationId "com.darkeyes.tricks"
+        minSdkVersion 26
+        targetSdkVersion 29
+        versionCode 18
+        versionName '2.11'
+        signingConfig signingConfigs.release
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+    productFlavors {
+    }
+    compileOptions {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    compileOnly 'de.robv.android.xposed:api:82'
+    implementation 'com.google.android.material:material:1.1.0-beta01'
+}
