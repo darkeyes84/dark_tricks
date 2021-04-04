@@ -1,5 +1,6 @@
 package com.darkeyes.tricks;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.content.pm.PackageManager;
@@ -25,9 +26,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getSharedPreferences("com.darkeyes.tricks_preferences", MODE_PRIVATE);
-        getPreferenceManager().setStorageDeviceProtected();
-
+        getSharedPreferences("com.darkeyes.tricks_preferences", Context.MODE_WORLD_READABLE);
         addPreferencesFromResource(R.xml.pref_tricks);
 
         PreferenceScreen prefScreen = (PreferenceScreen) findPreference("prefScreen");
@@ -49,10 +48,10 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         if (Build.VERSION.SDK_INT >= 28) {
             prefScreen.removePreference(useKeyguardPhone);
         }
-        if (Build.VERSION.SDK_INT == 29) {
+        if (Build.VERSION.SDK_INT >= 29) {
             prefScreen.removePreference(navbarAlwaysRight);
         }
-        if (Build.VERSION.SDK_INT != 29) {
+        if (Build.VERSION.SDK_INT < 29) {
             prefScreen.removePreference(hideBuildVersion);
         }
         if (!torchAvailable()) {

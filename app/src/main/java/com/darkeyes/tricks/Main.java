@@ -32,6 +32,7 @@ import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XSharedPreferences;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import static de.robv.android.xposed.XposedBridge.invokeOriginalMethod;
@@ -81,7 +82,10 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
-        pref = new XSharedPreferences(prefFile);
+        if (XposedBridge.getXposedVersion() < 93)
+            pref = new XSharedPreferences(prefFile);
+        else
+            pref = new XSharedPreferences("com.darkeyes.tricks");
 
         int cursorControl = Integer.parseInt(pref.getString("trick_cursorControl", "0"));
         if (cursorControl != 0) {
@@ -232,7 +236,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_useKeyguardPhone", true) && (Build.VERSION.SDK_INT < 28)) {
+            if (pref.getBoolean("trick_useKeyguardPhone", true) && Build.VERSION.SDK_INT < 28) {
                 findAndHookMethod("com.android.systemui.statusbar.phone.KeyguardBottomAreaView", param.classLoader, "canLaunchVoiceAssist", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -241,7 +245,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_navbarAlwaysRight", true)) {
+            if (pref.getBoolean("trick_navbarAlwaysRight", true) && Build.VERSION.SDK_INT < 29) {
                 findAndHookMethod("com.android.systemui.statusbar.phone.NavigationBarInflaterView", param.classLoader, "setAlternativeOrder", boolean.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -249,7 +253,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
 
-                if ((Build.VERSION.SDK_INT >= 28)) {
+                if (Build.VERSION.SDK_INT == 28) {
                     findAndHookMethod("com.android.systemui.util.leak.RotationUtils", param.classLoader, "getRotation", "android.content.Context", new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
@@ -270,7 +274,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
             }
 
-            if (pref.getBoolean("trick_forceDarkTheme", true) && (Build.VERSION.SDK_INT == 27)) {
+            if (pref.getBoolean("trick_forceDarkTheme", true) && Build.VERSION.SDK_INT == 27) {
                 findAndHookMethod("android.app.WallpaperColors", param.classLoader, "getColorHints", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -281,22 +285,21 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_hideBuildVersion", true)) {
+            if (pref.getBoolean("trick_hideBuildVersion", true) && Build.VERSION.SDK_INT >= 29) {
 
-                if (Build.VERSION.SDK_INT == 29) {
-                    findAndHookMethod("com.android.systemui.qs.QSFooterImpl", param.classLoader, "setBuildText", new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            param.setResult(null);
-                        }
-                    });
-                }
+                findAndHookMethod("com.android.systemui.qs.QSFooterImpl", param.classLoader, "setBuildText", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        param.setResult(null);
+                    }
+                });
             }
 
             carrierText = pref.getString("trick_customCarrierText", "");
 
             if (carrierText != null && !carrierText.isEmpty()) {
-                findAndHookMethod("com.android.systemui.qs.QSCarrier", param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
+                String CLASS = Build.VERSION.SDK_INT == 30 ? "com.android.systemui.qs.carrier.QSCarrier" : "com.android.systemui.qs.QSCarrier";
+                findAndHookMethod(CLASS, param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
 
@@ -314,7 +317,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
         } else if (param.packageName.equals("android")) {
-            if (pref.getBoolean("trick_navbarAlwaysRight", true)) {
+            if (pref.getBoolean("trick_navbarAlwaysRight", true) && Build.VERSION.SDK_INT < 29) {
                 if (Build.VERSION.SDK_INT == 28) {
 
                     findAndHookMethod("com.android.server.wm.DisplayFrames", param.classLoader, "onDisplayInfoUpdated", "android.view.DisplayInfo", "com.android.server.wm.utils.WmDisplayCutout", new XC_MethodHook() {
@@ -677,7 +680,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
 
-                findAndHookMethod("com.android.server.power.PowerManagerService$PowerManagerHandler", param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+                String CLASS = Build.VERSION.SDK_INT == 30 ? "com.android.server.power.PowerManagerService$PowerManagerHandlerCallback" : "com.android.server.power.PowerManagerService$PowerManagerHandler";
+                findAndHookMethod(CLASS , param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         Message msg = (Message) param.args[0];
@@ -736,8 +740,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             }
 
-        } else if (param.packageName.equals("com.google.android.apps.nexuslauncher")) {
-            if (pref.getBoolean("trick_navbarAlwaysRight", true) && (Build.VERSION.SDK_INT == 28)) {
+        } else if (param.packageName.equals("com.google.android.apps.nexuslauncher") && Build.VERSION.SDK_INT < 29) {
+            if (pref.getBoolean("trick_navbarAlwaysRight", true) && Build.VERSION.SDK_INT == 28) {
                 findAndHookMethod("com.android.launcher3.DeviceProfile", param.classLoader, "updateIsSeascape", "android.view.WindowManager", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -762,7 +766,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_forceDarkTheme", true) && (Build.VERSION.SDK_INT == 27)) {
+            if (pref.getBoolean("trick_forceDarkTheme", true) && Build.VERSION.SDK_INT == 27) {
                 findAndHookMethod("android.app.WallpaperColors", param.classLoader, "getColorHints", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {

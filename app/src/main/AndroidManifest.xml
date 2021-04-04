@@ -16,6 +16,9 @@
         <meta-data
             android:name="xposeddescription"
             android:value="Dark_Eyes_&apos;s tricks" />
+        <meta-data
+            android:name="xposedsharedprefs"
+            android:value="true" />
 
         <activity
             android:name=".SettingsActivity"
