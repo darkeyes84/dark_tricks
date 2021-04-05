@@ -53,6 +53,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         }
         if (Build.VERSION.SDK_INT < 29) {
             prefScreen.removePreference(hideBuildVersion);
+            prefScreen.removePreference(lessNotifications);
         }
         if (!torchAvailable()) {
             prefScreen.removePreference(powerTorch);

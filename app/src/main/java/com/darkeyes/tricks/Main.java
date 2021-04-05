@@ -64,7 +64,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private CameraManager mCameraManager;
     private CameraManager.TorchCallback mTorchCallback;
     private PowerManager mPowerManager;
-    private PowerManager.WakeLock mWakeLock;
     private Context mContext;
     private Handler mHandler;
     private SensorEventListener mProximityListener;
@@ -109,11 +108,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             param.setResult(true);
                             return;
                         }
-                        param.setResult(false);
-                        return;
-                    }
-
-                    if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                    } else if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
                         if (mService.isInputViewShown()) {
                             int newKeyCode = (cursorControl == 1) ?
                                     KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT;
@@ -121,9 +116,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             param.setResult(true);
                             return;
                         }
-                        param.setResult(false);
-                        return;
                     }
+                    param.setResult(false);
                 }
             });
 
@@ -144,21 +138,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam param) {
 
         if (param.packageName.equals("com.android.systemui")) {
-
             findAndHookMethod("com.android.systemui.statusbar.policy.NetworkControllerImpl.Config", param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
-
-                    if (pref.getBoolean("trick_hideLtePlus", true)) {
-                        setBooleanField(param.getResult(), "hideLtePlus", true);
-                    } else {
-                        setBooleanField(param.getResult(), "hideLtePlus", false);
-                    }
-                    if (pref.getBoolean("trick_show4gForLte", false)) {
-                        setBooleanField(param.getResult(), "show4gForLte", true);
-                    } else {
-                        setBooleanField(param.getResult(), "show4gForLte", false);
-                    }
+                    setBooleanField(param.getResult(), "hideLtePlus", pref.getBoolean("trick_hideLtePlus", true));
+                    setBooleanField(param.getResult(), "show4gForLte", pref.getBoolean("trick_show4gForLte", false));
                 }
             });
 
@@ -210,7 +194,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_hideVpn", true)) {
-
                 findAndHookMethod("com.android.systemui.statusbar.policy.SecurityControllerImpl", param.classLoader, "isVpnEnabled", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -227,7 +210,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_hideCert", true)) {
-
                 findAndHookMethod("com.android.systemui.statusbar.policy.SecurityControllerImpl", param.classLoader, "hasCACertInCurrentUser", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -286,7 +268,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_hideBuildVersion", true) && Build.VERSION.SDK_INT >= 29) {
-
                 findAndHookMethod("com.android.systemui.qs.QSFooterImpl", param.classLoader, "setBuildText", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -296,13 +277,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             carrierText = pref.getString("trick_customCarrierText", "");
-
             if (carrierText != null && !carrierText.isEmpty()) {
                 String CLASS = Build.VERSION.SDK_INT == 30 ? "com.android.systemui.qs.carrier.QSCarrier" : "com.android.systemui.qs.QSCarrier";
                 findAndHookMethod(CLASS, param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-
                         param.args[0] = carrierText.trim().isEmpty() ? "" : carrierText;
                     }
                 });
@@ -310,7 +289,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 findAndHookMethod("com.android.keyguard.CarrierTextController", param.classLoader, "postToCallback", "com.android.keyguard.CarrierTextController.CarrierTextCallbackInfo", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-
                         setObjectField(param.args[0], "carrierText", carrierText.trim().isEmpty() ? "" : carrierText);
                     }
                 });
@@ -366,8 +344,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
                     });
 
-                } else if (Build.VERSION.SDK_INT < 28) {
-
+                } else {
                     findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "navigationBarPosition", int.class, int.class, int.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
@@ -387,11 +364,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_skipTrack", true) || pref.getBoolean("trick_powerTorch", true)) {
-
                 findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "init", Context.class, "android.view.IWindowManager", "com.android.server.policy.WindowManagerPolicy.WindowManagerFuncs", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
-
                         if (pref.getBoolean("trick_skipTrack", true)) {
                             Runnable mVolumeUpLongPress = () -> {
                                 mVolumeLongPress = true;
@@ -419,11 +394,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                             setAdditionalInstanceField(param.thisObject, "mVolumeUpLongPress", mVolumeUpLongPress);
                             setAdditionalInstanceField(param.thisObject, "mVolumeDownLongPress", mVolumeDownLongPress);
-
                         }
 
                         if (pref.getBoolean("trick_powerTorch", true)) {
-
                             if (mTorchCallback == null) {
                                 mTorchCallback = new CameraManager.TorchCallback() {
                                     @Override
@@ -449,18 +422,13 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             Runnable mPowerDownLongPress = () -> {
                                 if (!mTorchEnabled) {
                                     synchronized (mProximityWakeLock) {
-                                        if (!mProximityWakeLock.isHeld()) mProximityWakeLock.acquire();
-                                        if (mProximityListener != null) {
-                                            mSensorManager.unregisterListener(mProximityListener);
-                                            mProximityListener = null;
-                                        }
                                         mProximityListener = new SensorEventListener() {
                                             @Override
                                             public void onSensorChanged(SensorEvent event) {
                                                 if (mProximityWakeLock.isHeld())
                                                     mProximityWakeLock.release();
                                                 if (mProximityListener != null) {
-                                                    mSensorManager.unregisterListener(mProximityListener, mProximitySensor);
+                                                    mSensorManager.unregisterListener(mProximityListener);
                                                     mProximityListener = null;
                                                 }
                                                 if (event.values[0] >= mProximitySensor.getMaximumRange()) {
@@ -495,7 +463,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             };
 
                             setAdditionalInstanceField(param.thisObject, "mPowerDownLongPress", mPowerDownLongPress);
-
                         }
                     }
                 });
@@ -503,17 +470,19 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "interceptKeyBeforeQueueing", KeyEvent.class, int.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-
                         KeyEvent event = (KeyEvent) param.args[0];
                         int keyCode = event.getKeyCode();
                         mHandler = (Handler) getObjectField(param.thisObject, "mHandler");
                         mContext = (Context) getObjectField(param.thisObject, "mContext");
-                        if (mPowerManager == null) mPowerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
+
+                        if (mPowerManager == null)
+                            mPowerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
 
                         if (pref.getBoolean("trick_skipTrack", true)) {
                             Runnable mVolumeUpLongPress = (Runnable) getAdditionalInstanceField(param.thisObject, "mVolumeUpLongPress");
                             Runnable mVolumeDownLongPress = (Runnable) getAdditionalInstanceField(param.thisObject, "mVolumeDownLongPress");
-                            if (mAudioManager == null) mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+                            if (mAudioManager == null)
+                                mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
 
                             if ((keyCode == KeyEvent.KEYCODE_VOLUME_DOWN ||
                                     keyCode == KeyEvent.KEYCODE_VOLUME_UP) &&
@@ -541,7 +510,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
 
                         if (pref.getBoolean("trick_powerTorch", true)) {
-
                             if (mCameraManager == null) {
                                 mTorchAvailable = false;
                                 mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
@@ -567,17 +535,20 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 mDownTime = event.getEventTime();
                             }
 
-                            if (keyCode == KeyEvent.KEYCODE_POWER && !mPowerManager.isInteractive() && (event.getEventTime() - mDownTime > 300) && (event.getSource() != InputDevice.SOURCE_UNKNOWN) && mTorchAvailable) {
-                                if (mSensorManager == null) mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
-                                if (mProximitySensor == null) mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-                                if (mProximityWakeLock == null) mProximityWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:TorchWakeLock");
-                                if (mWakeLock == null) mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:PowerTorch");
+                            if (keyCode == KeyEvent.KEYCODE_POWER && !mPowerManager.isInteractive() &&
+                                    (event.getEventTime() - mDownTime > 300) && event.getSource() != InputDevice.SOURCE_UNKNOWN) {
+                                if (mSensorManager == null)
+                                    mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
+                                if (mProximitySensor == null)
+                                    mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+                                if (mProximityWakeLock == null)
+                                    mProximityWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:TorchWakeLock");
 
                                 Runnable mPowerDownLongPress = (Runnable) getAdditionalInstanceField(param.thisObject, "mPowerDownLongPress");
                                 if (event.getAction() == KeyEvent.ACTION_DOWN) {
                                     if (event.getRepeatCount() == 0) {
                                         mPowerLongPress = false;
-                                        if (!mWakeLock.isHeld()) mWakeLock.acquire();
+                                        mProximityWakeLock.acquire(5000L /*5 seconds*/);
                                         mHandler.postDelayed(mPowerDownLongPress, ViewConfiguration.getLongPressTimeout());
                                     }
                                 } else {
@@ -593,7 +564,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                                     KeyEvent.KEYCODE_POWER, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_UNKNOWN), 0);
                                         });
                                     }
-                                    if (mWakeLock.isHeld()) mWakeLock.release();
+                                    if (mProximityWakeLock.isHeld())
+                                        mProximityWakeLock.release();
                                 }
                                 param.setResult(0);
                             }
@@ -604,17 +576,21 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_proximityWakeUp", true)) {
-
                 findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", "com.android.internal.app.IAppOpsService", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         mWakeUpContext = (Context) getObjectField(param.thisObject, "mContext");
                         mWakeUpHandler = (Handler) getObjectField(param.thisObject, "mHandler");
-                        if (mSensorManager == null) mSensorManager = (SensorManager) mWakeUpContext.getSystemService(Context.SENSOR_SERVICE);
-                        if (mProximitySensor == null) mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-                        if (mPowerManager == null) mPowerManager = (PowerManager) mWakeUpContext.getSystemService(Context.POWER_SERVICE);
-                        if (mTelephonyManager == null) mTelephonyManager = (TelephonyManager) mWakeUpContext.getSystemService(Context.TELEPHONY_SERVICE);
-                        if (mWakeUpWakeLock == null) mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
+                        if (mSensorManager == null)
+                            mSensorManager = (SensorManager) mWakeUpContext.getSystemService(Context.SENSOR_SERVICE);
+                        if (mProximitySensor == null)
+                            mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+                        if (mPowerManager == null)
+                            mPowerManager = (PowerManager) mWakeUpContext.getSystemService(Context.POWER_SERVICE);
+                        if (mTelephonyManager == null)
+                            mTelephonyManager = (TelephonyManager) mWakeUpContext.getSystemService(Context.TELEPHONY_SERVICE);
+                        if (mWakeUpWakeLock == null)
+                            mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
                     }
                 });
 
@@ -632,10 +608,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             }
                         };
 
-                        setAdditionalInstanceField(param.thisObject, "mWakeUp", mWakeUp);
-
                         if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC") && (int)param.args[1] != 5) {
-
                             if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
                                 param.setResult(null);
                                 return;
@@ -645,15 +618,12 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             mWakeUpHandler.sendMessageDelayed(msg, 100);
 
                             synchronized (mWakeUpWakeLock) {
-                                if (!mWakeUpWakeLock.isHeld()) mWakeUpWakeLock.acquire();
-                                if (mWakeUpListener != null) {
-                                    mSensorManager.unregisterListener(mWakeUpListener);
-                                    mWakeUpListener = null;
-                                }
+                                mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
                                 mWakeUpListener = new SensorEventListener() {
                                     @Override
                                     public void onSensorChanged(SensorEvent event) {
-                                        if (mWakeUpWakeLock.isHeld()) mWakeUpWakeLock.release();
+                                        if (mWakeUpWakeLock.isHeld())
+                                            mWakeUpWakeLock.release();
                                         if (mWakeUpListener != null) {
                                             mSensorManager.unregisterListener(mWakeUpListener);
                                             mWakeUpListener = null;
@@ -663,9 +633,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                             return;
                                         }
                                         mWakeUpHandler.removeMessages(MSG_WAKE_UP);
-                                        if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                        if (event.values[0] >= mProximitySensor.getMaximumRange())
                                             mWakeUp.run();
-                                        }
                                     }
 
                                     @Override
@@ -685,17 +654,18 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         Message msg = (Message) param.args[0];
-                        Runnable mWakeUp = (Runnable) getAdditionalInstanceField(param.thisObject, "mWakeUp");
 
                         if (msg.what == MSG_WAKE_UP) {
                             synchronized (mWakeUpWakeLock) {
-                                if (mWakeUpWakeLock.isHeld()) mWakeUpWakeLock.release();
+                                if (mWakeUpWakeLock.isHeld())
+                                    mWakeUpWakeLock.release();
                                 if (mWakeUpListener != null) {
                                     mSensorManager.unregisterListener(mWakeUpListener);
                                     mWakeUpListener = null;
                                 }
                             }
-                            mWakeUp.run();
+                            ((Runnable) msg.obj).run();
+                            XposedBridge.log("Prox timed out");
                         }
                     }
                 });
@@ -721,7 +691,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             synchronized (mNotificationLock) {
                                 if (pref.getBoolean("trick_screenOffNotifications", false) && getBooleanField(param.thisObject, "mScreenOn")) {
                                     param.setResult(true);
-                                } else if (timeout != 0) {
+                                }
+                                if (timeout != 0) {
                                     StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
                                     Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
                                     long currentTime = SystemClock.elapsedRealtime();
