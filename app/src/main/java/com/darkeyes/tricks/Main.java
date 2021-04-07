@@ -460,6 +460,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                     } catch (Exception e) {
                                     }
                                 }
+                                if (mProximityWakeLock.isHeld())
+                                    mProximityWakeLock.release();
                             };
 
                             setAdditionalInstanceField(param.thisObject, "mPowerDownLongPress", mPowerDownLongPress);
@@ -535,8 +537,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 mDownTime = event.getEventTime();
                             }
 
-                            if (keyCode == KeyEvent.KEYCODE_POWER && !mPowerManager.isInteractive() &&
-                                    (event.getEventTime() - mDownTime > 300) && event.getSource() != InputDevice.SOURCE_UNKNOWN) {
+                            if (keyCode == KeyEvent.KEYCODE_POWER && ((!mPowerManager.isInteractive() &&
+                                    (event.getEventTime() - mDownTime > 300)) || mTorchEnabled) && event.getSource() != InputDevice.SOURCE_UNKNOWN) {
                                 if (mSensorManager == null)
                                     mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
                                 if (mProximitySensor == null)
@@ -665,7 +667,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 }
                             }
                             ((Runnable) msg.obj).run();
-                            XposedBridge.log("Prox timed out");
                         }
                     }
                 });
@@ -673,7 +674,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
-                        if (!mPowerManager.isInteractive()) {
+                        if (!mPowerManager.isInteractive())
                             param.setResult(null);
                         }
                     }
