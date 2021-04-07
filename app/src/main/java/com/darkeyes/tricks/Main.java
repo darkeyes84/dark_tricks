@@ -78,6 +78,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private int MSG_WAKE_UP = 100;
     private ArrayMap<String, Long> mLastTimestamps = new ArrayMap<>();
     private long mDownTime = 0L;
+    private boolean mCameraGesture;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -610,7 +611,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             }
                         };
 
-                        if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC") && (int)param.args[1] != 5) {
+                        if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
                             if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
                                 param.setResult(null);
                                 return;
@@ -635,8 +636,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                             return;
                                         }
                                         mWakeUpHandler.removeMessages(MSG_WAKE_UP);
-                                        if (event.values[0] >= mProximitySensor.getMaximumRange())
+                                        if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                            mCameraGesture = true;
                                             mWakeUp.run();
+                                        } else
+                                            mCameraGesture = false;
                                     }
 
                                     @Override
@@ -666,6 +670,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                     mWakeUpListener = null;
                                 }
                             }
+                            mCameraGesture = true;
                             ((Runnable) msg.obj).run();
                         }
                     }
@@ -676,13 +681,20 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     protected void beforeHookedMethod(MethodHookParam param) {
                         if (!mPowerManager.isInteractive())
                             param.setResult(null);
-                        }
+                    }
+                });
+
+                findAndHookMethod("com.android.server.GestureLauncherService", param.classLoader, "handleCameraGesture", boolean.class, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if (!mCameraGesture)
+                            param.setResult(false);
                     }
                 });
             }
 
             int timeout = Integer.parseInt(pref.getString("trick_lessNotifications", "0"));
-            if (timeout != 0 || pref.getBoolean("trick_screenOffNotifications", false)) {
+            if ((Build.VERSION.SDK_INT >= 29 && timeout != 0) || pref.getBoolean("trick_screenOffNotifications", false)) {
 
                 findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
                     @Override
@@ -690,10 +702,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         if ((boolean) param.getResult() == false) {
                             Object mNotificationLock = getObjectField(param.thisObject, "mNotificationLock");
                             synchronized (mNotificationLock) {
-                                if (pref.getBoolean("trick_screenOffNotifications", false) && getBooleanField(param.thisObject, "mScreenOn")) {
-                                    param.setResult(true);
+                                if (pref.getBoolean("trick_screenOffNotifications", false)) {
+                                    if (getBooleanField(param.thisObject, "mScreenOn"))
+                                        param.setResult(true);
                                 }
-                                if (timeout != 0) {
+                                if (Build.VERSION.SDK_INT >= 29 && timeout != 0) {
                                     StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
                                     Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
                                     long currentTime = SystemClock.elapsedRealtime();
