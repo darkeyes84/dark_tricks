@@ -364,7 +364,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_skipTrack", true) || pref.getBoolean("trick_powerTorch", true)) {
+            if (pref.getBoolean("trick_skipTrack", true) || pref.getBoolean("trick_powerTorch", false)) {
                 findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "init", Context.class, "android.view.IWindowManager", "com.android.server.policy.WindowManagerPolicy.WindowManagerFuncs", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
@@ -397,7 +397,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             setAdditionalInstanceField(param.thisObject, "mVolumeDownLongPress", mVolumeDownLongPress);
                         }
 
-                        if (pref.getBoolean("trick_powerTorch", true)) {
+                        if (pref.getBoolean("trick_powerTorch", false)) {
                             if (mTorchCallback == null) {
                                 mTorchCallback = new CameraManager.TorchCallback() {
                                     @Override
@@ -512,7 +512,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             }
                         }
 
-                        if (pref.getBoolean("trick_powerTorch", true)) {
+                        if (pref.getBoolean("trick_powerTorch", false)) {
                             if (mCameraManager == null) {
                                 mTorchAvailable = false;
                                 mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);

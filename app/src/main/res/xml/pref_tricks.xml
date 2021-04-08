@@ -72,7 +72,7 @@
         android:key="trick_powerTorch"
         android:title="@string/powerTorch_title"
         android:summary="@string/powerTorch_summary"
-        android:defaultValue="true" />
+        android:defaultValue="false" />
 
     <SwitchPreference
         android:key="trick_skipTrack"
