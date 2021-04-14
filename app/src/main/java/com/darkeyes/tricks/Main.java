@@ -107,18 +107,17 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                     KeyEvent.KEYCODE_DPAD_LEFT : KeyEvent.KEYCODE_DPAD_RIGHT;
                             mService.sendDownUpKeyEvents(newKeyCode);
                             param.setResult(true);
-                            return;
-                        }
+                        } else
+                            param.setResult(false);
                     } else if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
                         if (mService.isInputViewShown()) {
                             int newKeyCode = (cursorControl == 1) ?
                                     KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT;
                             mService.sendDownUpKeyEvents(newKeyCode);
                             param.setResult(true);
-                            return;
-                        }
+                        } else
+                            param.setResult(false);
                     }
-                    param.setResult(false);
                 }
             });
 
@@ -126,11 +125,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     int keyCode = ((KeyEvent) param.args[1]).getKeyCode();
-                    if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-                        if (mService.isInputViewShown()) {
-                            param.setResult(true);
-                        }
-                    }
+                    if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+                        param.setResult(mService.isInputViewShown());
+
                 }
             });
         }
@@ -294,7 +291,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
             }
-
+            
         } else if (param.packageName.equals("android")) {
             if (pref.getBoolean("trick_navbarAlwaysRight", true) && Build.VERSION.SDK_INT < 29) {
                 if (Build.VERSION.SDK_INT == 28) {
