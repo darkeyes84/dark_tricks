@@ -35,6 +35,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         SwitchPreference navbarAlwaysRight = (SwitchPreference) findPreference("trick_navbarAlwaysRight");
         SwitchPreference hideBuildVersion = (SwitchPreference) findPreference("trick_hideBuildVersion");
         SwitchPreference powerTorch = (SwitchPreference) findPreference("trick_powerTorch");
+        SwitchPreference proximityWakeUp = (SwitchPreference) findPreference("trick_proximityWakeUp");
         customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
         cursorControl = (ListPreference) findPreference("trick_cursorControl");
         lessNotifications = (ListPreference) findPreference("trick_lessNotifications");
@@ -54,6 +55,9 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         if (Build.VERSION.SDK_INT < 29) {
             prefScreen.removePreference(hideBuildVersion);
             prefScreen.removePreference(lessNotifications);
+        }
+        if (Build.VERSION.SDK_INT == 31) {
+            prefScreen.removePreference(proximityWakeUp);
         }
         if (!torchAvailable()) {
             prefScreen.removePreference(powerTorch);

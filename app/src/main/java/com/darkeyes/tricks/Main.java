@@ -136,7 +136,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam param) {
 
         if (param.packageName.equals("com.android.systemui")) {
-            findAndHookMethod("com.android.systemui.statusbar.policy.NetworkControllerImpl.Config", param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
+            String CLASS = Build.VERSION.SDK_INT <= 30 ? "com.android.systemui.statusbar.policy.NetworkControllerImpl.Config"
+                    : "com.android.settingslib.mobile.MobileMappings.Config";
+            findAndHookMethod(CLASS, param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     setBooleanField(param.getResult(), "hideLtePlus", pref.getBoolean("trick_hideLtePlus", true));
@@ -153,12 +155,14 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
 
                 if (Build.VERSION.SDK_INT >= 28) {
-                    findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            param.setResult(null);
-                        }
-                    });
+                    if (Build.VERSION.SDK_INT <= 30) {
+                        findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+                                param.setResult(null);
+                            }
+                        });
+                    }
 
                     findAndHookMethod("com.android.systemui.keyguard.KeyguardSliceProvider", param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
                         @Override
@@ -167,8 +171,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
                     });
                 } else {
-                    String CLASS = Build.VERSION.SDK_INT == 27 ? "com.android.systemui.qs.QSFooterImpl" : "com.android.systemui.qs.QSFooter";
-                    findAndHookMethod(CLASS, param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
+                    String FOOTER = Build.VERSION.SDK_INT == 27 ? "com.android.systemui.qs.QSFooterImpl" : "com.android.systemui.qs.QSFooter";
+                    findAndHookMethod(FOOTER, param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
                             param.setResult(null);
@@ -266,7 +270,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_hideBuildVersion", true) && Build.VERSION.SDK_INT >= 29) {
-                findAndHookMethod("com.android.systemui.qs.QSFooterImpl", param.classLoader, "setBuildText", new XC_MethodHook() {
+                String FOOTER = Build.VERSION.SDK_INT <= 30 ? "com.android.systemui.qs.QSFooterImpl" : "com.android.systemui.qs.QSFooterView";
+                findAndHookMethod(FOOTER, param.classLoader, "setBuildText", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         param.setResult(null);
@@ -276,15 +281,16 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             carrierText = pref.getString("trick_customCarrierText", "");
             if (carrierText != null && !carrierText.isEmpty()) {
-                String CLASS = Build.VERSION.SDK_INT == 30 ? "com.android.systemui.qs.carrier.QSCarrier" : "com.android.systemui.qs.QSCarrier";
-                findAndHookMethod(CLASS, param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
+                String CARRIER = Build.VERSION.SDK_INT >= 30 ? "com.android.systemui.qs.carrier.QSCarrier" : "com.android.systemui.qs.QSCarrier";
+                findAndHookMethod(CARRIER, param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         param.args[0] = carrierText.trim().isEmpty() ? "" : carrierText;
                     }
                 });
 
-                findAndHookMethod("com.android.keyguard.CarrierTextController", param.classLoader, "postToCallback", "com.android.keyguard.CarrierTextController.CarrierTextCallbackInfo", new XC_MethodHook() {
+                String CARRIERTEXT = Build.VERSION.SDK_INT <= 30 ? "com.android.keyguard.CarrierTextController" : "com.android.keyguard.CarrierTextManager";
+                findAndHookMethod(CARRIERTEXT, param.classLoader, "postToCallback", CARRIERTEXT + ".CarrierTextCallbackInfo", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         setObjectField(param.args[0], "carrierText", carrierText.trim().isEmpty() ? "" : carrierText);
@@ -575,7 +581,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_proximityWakeUp", true)) {
+            if (pref.getBoolean("trick_proximityWakeUp", true) && Build.VERSION.SDK_INT <= 30) {
                 findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", "com.android.internal.app.IAppOpsService", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
