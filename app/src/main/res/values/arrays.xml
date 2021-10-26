@@ -30,4 +30,9 @@
         <item>120000</item>
     </string-array>
 
+    <string-array name="scopes" translatable="false">
+        <item>android</item>
+        <item>com.android.systemui</item>
+        <item>com.google.android.inputmethod.latin</item>
+    </string-array>
 </resources>
