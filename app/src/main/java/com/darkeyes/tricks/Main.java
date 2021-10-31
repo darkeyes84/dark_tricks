@@ -162,14 +162,15 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 param.setResult(null);
                             }
                         });
+
+                        findAndHookMethod("com.android.systemui.keyguard.KeyguardSliceProvider", param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+                                param.setResult(null);
+                            }
+                        });
                     }
 
-                    findAndHookMethod("com.android.systemui.keyguard.KeyguardSliceProvider", param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            param.setResult(null);
-                        }
-                    });
                 } else {
                     String FOOTER = Build.VERSION.SDK_INT == 27 ? "com.android.systemui.qs.QSFooterImpl" : "com.android.systemui.qs.QSFooter";
                     findAndHookMethod(FOOTER, param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
@@ -581,7 +582,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_proximityWakeUp", true) && Build.VERSION.SDK_INT <= 30) {
+            if (pref.getBoolean("trick_proximityWakeUp", true)) {
                 findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", "com.android.internal.app.IAppOpsService", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
@@ -600,65 +601,125 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
 
-                findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeUpInternal", long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
+                if (Build.VERSION.SDK_INT <= 30) {
+                    findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeUpInternal", long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
 
-                        Runnable mWakeUp = () -> {
-                            long ident = Binder.clearCallingIdentity();
-                            try {
-                                invokeOriginalMethod(param.method, param.thisObject, param.args);
-                            } catch (Throwable t) {
-                            } finally {
-                                Binder.restoreCallingIdentity(ident);
-                            }
-                        };
+                            Runnable mWakeUp = () -> {
+                                long ident = Binder.clearCallingIdentity();
+                                try {
+                                    invokeOriginalMethod(param.method, param.thisObject, param.args);
+                                } catch (Throwable t) {
+                                } finally {
+                                    Binder.restoreCallingIdentity(ident);
+                                }
+                            };
 
-                        if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
-                            if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                            if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
+                                if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                    param.setResult(null);
+                                    return;
+                                }
+                                Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                                msg.obj = mWakeUp;
+                                mWakeUpHandler.sendMessageDelayed(msg, 100);
+
+                                synchronized (mWakeUpWakeLock) {
+                                    mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
+                                    mWakeUpListener = new SensorEventListener() {
+                                        @Override
+                                        public void onSensorChanged(SensorEvent event) {
+                                            if (mWakeUpWakeLock.isHeld())
+                                                mWakeUpWakeLock.release();
+                                            if (mWakeUpListener != null) {
+                                                mSensorManager.unregisterListener(mWakeUpListener);
+                                                mWakeUpListener = null;
+                                            }
+                                            if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                                param.setResult(null);
+                                                return;
+                                            }
+                                            mWakeUpHandler.removeMessages(MSG_WAKE_UP);
+                                            if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                mCameraGesture = true;
+                                                mWakeUp.run();
+                                            } else
+                                                mCameraGesture = false;
+                                        }
+
+                                        @Override
+                                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                        }
+                                    };
+                                }
+                                mSensorManager.registerListener(mWakeUpListener,
+                                        mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
                                 param.setResult(null);
-                                return;
                             }
-                            Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
-                            msg.obj = mWakeUp;
-                            mWakeUpHandler.sendMessageDelayed(msg, 100);
-
-                            synchronized (mWakeUpWakeLock) {
-                                mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
-                                mWakeUpListener = new SensorEventListener() {
-                                    @Override
-                                    public void onSensorChanged(SensorEvent event) {
-                                        if (mWakeUpWakeLock.isHeld())
-                                            mWakeUpWakeLock.release();
-                                        if (mWakeUpListener != null) {
-                                            mSensorManager.unregisterListener(mWakeUpListener);
-                                            mWakeUpListener = null;
-                                        }
-                                        if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                            param.setResult(null);
-                                            return;
-                                        }
-                                        mWakeUpHandler.removeMessages(MSG_WAKE_UP);
-                                        if (event.values[0] >= mProximitySensor.getMaximumRange()) {
-                                            mCameraGesture = true;
-                                            mWakeUp.run();
-                                        } else
-                                            mCameraGesture = false;
-                                    }
-
-                                    @Override
-                                    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                    }
-                                };
-                            }
-                            mSensorManager.registerListener(mWakeUpListener,
-                                    mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
-                            param.setResult(null);
                         }
-                    }
-                });
+                    });
+                } else {
+                    findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeDisplayGroup", int.class, long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
 
-                String CLASS = Build.VERSION.SDK_INT == 30 ? "com.android.server.power.PowerManagerService$PowerManagerHandlerCallback" : "com.android.server.power.PowerManagerService$PowerManagerHandler";
+                            Runnable mWakeUp = () -> {
+                                long ident = Binder.clearCallingIdentity();
+                                try {
+                                    invokeOriginalMethod(param.method, param.thisObject, param.args);
+                                } catch (Throwable ignored) {
+                                } finally {
+                                    Binder.restoreCallingIdentity(ident);
+                                }
+                            };
+
+                            if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
+                                if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                    param.setResult(null);
+                                    return;
+                                }
+                                Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                                msg.obj = mWakeUp;
+                                mWakeUpHandler.sendMessageDelayed(msg, 100);
+
+                                synchronized (mWakeUpWakeLock) {
+                                    mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
+                                    mWakeUpListener = new SensorEventListener() {
+                                        @Override
+                                        public void onSensorChanged(SensorEvent event) {
+                                            if (mWakeUpWakeLock.isHeld())
+                                                mWakeUpWakeLock.release();
+                                            if (mWakeUpListener != null) {
+                                                mSensorManager.unregisterListener(mWakeUpListener);
+                                                mWakeUpListener = null;
+                                            }
+                                            if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                                param.setResult(null);
+                                                return;
+                                            }
+                                            mWakeUpHandler.removeMessages(MSG_WAKE_UP);
+                                            if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                mCameraGesture = true;
+                                                mWakeUp.run();
+                                            } else
+                                                mCameraGesture = false;
+                                        }
+
+                                        @Override
+                                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                        }
+                                    };
+                                }
+                                mSensorManager.registerListener(mWakeUpListener,
+                                        mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                param.setResult(null);
+                            }
+                        }
+                    });
+                }
+
+                String CLASS = Build.VERSION.SDK_INT >= 30 ? "com.android.server.power.PowerManagerService$PowerManagerHandlerCallback" : "com.android.server.power.PowerManagerService$PowerManagerHandler";
                 findAndHookMethod(CLASS , param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -679,13 +740,23 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
 
-                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        if (!mPowerManager.isInteractive())
-                            param.setResult(null);
-                    }
-                });
+                if (Build.VERSION.SDK_INT <= 30) {
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if (!mPowerManager.isInteractive())
+                                param.setResult(null);
+                        }
+                    });
+                } else {
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", long.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if (!mPowerManager.isInteractive())
+                                param.setResult(null);
+                        }
+                    });
+                }
 
                 findAndHookMethod("com.android.server.GestureLauncherService", param.classLoader, "handleCameraGesture", boolean.class, int.class, new XC_MethodHook() {
                     @Override
