@@ -162,14 +162,21 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 param.setResult(null);
                             }
                         });
-
-                        findAndHookMethod("com.android.systemui.keyguard.KeyguardSliceProvider", param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
+                    } else {
+                        findAndHookMethod("com.google.android.systemui.smartspace.KeyguardZenAlarmViewController", param.classLoader, "updateNextAlarm", new XC_MethodHook() {
                             @Override
                             protected void beforeHookedMethod(MethodHookParam param) {
                                 param.setResult(null);
                             }
                         });
                     }
+
+                    findAndHookMethod("com.android.systemui.keyguard.KeyguardSliceProvider", param.classLoader, "onNextAlarmChanged", "android.app.AlarmManager.AlarmClockInfo", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            param.setResult(null);
+                        }
+                    });
 
                 } else {
                     String FOOTER = Build.VERSION.SDK_INT == 27 ? "com.android.systemui.qs.QSFooterImpl" : "com.android.systemui.qs.QSFooter";
