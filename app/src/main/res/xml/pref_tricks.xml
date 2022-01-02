@@ -105,4 +105,10 @@
         android:title="@string/customCarrierText_title"
         android:defaultValue="" />
 
+    <SwitchPreference
+        android:key="trick_OutlookPolicy"
+        android:title="@string/OutlookPolicy_title"
+        android:summary="@string/OutlookPolicy_summary"
+        android:defaultValue="false" />
+
 </PreferenceScreen>

@@ -842,6 +842,22 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
             }
+        } else if (param.packageName.equals("com.microsoft.office.outlook")) {
+            if (pref.getBoolean("trick_OutlookPolicy", false)) {
+                findAndHookMethod("com.acompli.accore.util.OutlookDevicePolicy", param.classLoader, "requiresDeviceManagement", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        param.setResult(false);
+                    }
+                });
+
+                findAndHookMethod("com.acompli.accore.util.OutlookDevicePolicy", param.classLoader, "isPolicyApplied", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        param.setResult(true);
+                    }
+                });
+            }
         }
     }
 }

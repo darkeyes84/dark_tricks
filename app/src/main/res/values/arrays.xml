@@ -34,5 +34,6 @@
         <item>android</item>
         <item>com.android.systemui</item>
         <item>com.google.android.inputmethod.latin</item>
+        <item>com.microsoft.office.outlook</item>
     </string-array>
 </resources>

@@ -40,4 +40,6 @@
     <string name="lessNotifications_2m">Mute for 2 minutes</string>
     <string name="screenOffNotifications_title">Screen off notifications only</string>
     <string name="screenOffNotifications_summary">Prevent sound and vibration when screen is on</string>
+    <string name="OutlookPolicy_title">Bypass Outlook device policy</string>
+    <string name="OutlookPolicy_summary">Remove screen lock requirements and the need to enable Device admin</string>
 </resources>
