@@ -20,10 +20,13 @@ import android.os.SystemClock;
 import android.service.notification.StatusBarNotification;
 import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
+import android.view.GestureDetector;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewConfiguration;
 
 import java.io.File;
@@ -79,6 +82,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private ArrayMap<String, Long> mLastTimestamps = new ArrayMap<>();
     private long mDownTime = 0L;
     private boolean mCameraGesture;
+    private GestureDetector mDoubleTapGesture;
+    private Object mNotificationPanelViewController;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -302,6 +307,48 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         setObjectField(param.args[0], "carrierText", carrierText.trim().isEmpty() ? "" : carrierText);
+                    }
+                });
+            }
+
+            if ((pref.getBoolean("trick_doubleTapStatusBar", false) || (pref.getBoolean("trick_doubleTapLockScreen", false)))
+                    && Build.VERSION.SDK_INT == 31) {
+                findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        mNotificationPanelViewController = param.thisObject;
+                        View view = (View) getObjectField(param.thisObject, "mView");
+                        if (mPowerManager == null)
+                            mPowerManager = (PowerManager) getObjectField(param.thisObject, "mPowerManager");
+                        if (mDoubleTapGesture == null) {
+                            mDoubleTapGesture = new GestureDetector(view.getContext(),
+                                    new GestureDetector.SimpleOnGestureListener() {
+                                        @Override
+                                        public boolean onDoubleTap(MotionEvent e) {
+                                            callMethod(mPowerManager, "goToSleep", e.getEventTime());
+                                            return true;
+                                        }
+                                    });
+                        }
+                    }
+                });
+
+                findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController$TouchHandler", param.classLoader, "onTouch", View.class, MotionEvent.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if (param.args[0].getClass().getName().equals("com.android.systemui.statusbar.phone.NotificationPanelView")
+                                && mNotificationPanelViewController != null && mDoubleTapGesture != null) {
+                            MotionEvent event = (MotionEvent) param.args[1];
+                            boolean isKeyguard = getIntField(mNotificationPanelViewController, "mBarState") == 1;
+                            int statusBarHeight = getIntField(mNotificationPanelViewController, "mStatusBarHeaderHeightKeyguard");
+                            boolean isExpanded = getBooleanField(mNotificationPanelViewController, "mQsExpanded");
+                            boolean isPulsing = getBooleanField(mNotificationPanelViewController, "mPulsing");
+                            boolean isDozing = getBooleanField(mNotificationPanelViewController, "mDozing");
+                            boolean isStatusBar = event.getY() < statusBarHeight && !isExpanded && !isPulsing && !isDozing;
+                            if ((isKeyguard && pref.getBoolean("trick_doubleTapLockScreen", false))
+                                    || (isStatusBar && pref.getBoolean("trick_doubleTapStatusBar", false)))
+                                mDoubleTapGesture.onTouchEvent(event);
+                        }
                     }
                 });
             }

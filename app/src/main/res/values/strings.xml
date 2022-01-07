@@ -42,4 +42,8 @@
     <string name="screenOffNotifications_summary">Prevent sound and vibration when screen is on</string>
     <string name="OutlookPolicy_title">Bypass Outlook device policy</string>
     <string name="OutlookPolicy_summary">Remove screen lock requirements and the need to enable Device admin</string>
+    <string name="doubleTapStatusBar_title">Tap to sleep (status bar)</string>
+    <string name="doubleTapStatusBar_summary">Double tap on the status bar to turn off the screen</string>
+    <string name="doubleTapLockScreen_title">Tap to sleep (lockscreen)</string>
+    <string name="doubleTapLockScreen_summary">Double tap anywhere on the lockscreen to turn off the screen</string>
 </resources>

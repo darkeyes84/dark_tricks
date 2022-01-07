@@ -63,6 +63,18 @@
         android:defaultValue="true" />
 
     <SwitchPreference
+        android:key="trick_doubleTapStatusBar"
+        android:title="@string/doubleTapStatusBar_title"
+        android:summary="@string/doubleTapStatusBar_summary"
+        android:defaultValue="false" />
+
+    <SwitchPreference
+        android:key="trick_doubleTapLockScreen"
+        android:title="@string/doubleTapLockScreen_title"
+        android:summary="@string/doubleTapLockScreen_summary"
+        android:defaultValue="false" />
+
+    <SwitchPreference
         android:key="trick_proximityWakeUp"
         android:title="@string/proximityWakeUp_title"
         android:summary="@string/proximityWakeUp_summary"
