@@ -62,7 +62,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private boolean mVolumeLongPress;
     private boolean mPowerLongPress;
     private boolean mTorchEnabled;
-    private boolean mTorchAvailable;
     private AudioManager mAudioManager;
     private CameraManager mCameraManager;
     private CameraManager.TorchCallback mTorchCallback;
@@ -84,6 +83,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private boolean mCameraGesture;
     private GestureDetector mDoubleTapGesture;
     private Object mNotificationPanelViewController;
+    private int mStatusBarHeight = 0;
+    private int mStatusBarHeaderHeight = 0;
+    private long mLastDownEvent = 0L;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -317,6 +319,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         mNotificationPanelViewController = param.thisObject;
+                        mStatusBarHeight = getIntField(param.thisObject, "mStatusBarMinHeight");
+                        mStatusBarHeaderHeight = getIntField(param.thisObject, "mStatusBarHeaderHeightKeyguard");
                         View view = (View) getObjectField(param.thisObject, "mView");
                         if (mPowerManager == null)
                             mPowerManager = (PowerManager) getObjectField(param.thisObject, "mPowerManager");
@@ -339,18 +343,47 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         if (param.args[0].getClass().getName().equals("com.android.systemui.statusbar.phone.NotificationPanelView")
                                 && mNotificationPanelViewController != null && mDoubleTapGesture != null) {
                             MotionEvent event = (MotionEvent) param.args[1];
-                            boolean isKeyguard = getIntField(mNotificationPanelViewController, "mBarState") == 1;
-                            int statusBarHeight = getIntField(mNotificationPanelViewController, "mStatusBarHeaderHeightKeyguard");
                             boolean isExpanded = getBooleanField(mNotificationPanelViewController, "mQsExpanded");
                             boolean isPulsing = getBooleanField(mNotificationPanelViewController, "mPulsing");
                             boolean isDozing = getBooleanField(mNotificationPanelViewController, "mDozing");
-                            boolean isStatusBar = event.getY() < statusBarHeight && !isExpanded && !isPulsing && !isDozing;
+                            boolean isKeyguard = getIntField(mNotificationPanelViewController, "mBarState") == 1
+                                    && !isPulsing && !isDozing;
+                            boolean isStatusBar = event.getY() < mStatusBarHeight && !isExpanded;
                             if ((isKeyguard && pref.getBoolean("trick_doubleTapLockScreen", false))
                                     || (isStatusBar && pref.getBoolean("trick_doubleTapStatusBar", false)))
                                 mDoubleTapGesture.onTouchEvent(event);
                         }
                     }
                 });
+
+                if (pref.getBoolean("trick_doubleTapLockScreen", false)) {
+                    findAndHookMethod("com.android.systemui.statusbar.DragDownHelper", param.classLoader, "onInterceptTouchEvent", MotionEvent.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            MotionEvent event = (MotionEvent) param.args[0];
+                            long time = event.getEventTime();
+                            View host = (View) getObjectField(param.thisObject, "host");
+                            if (mPowerManager == null)
+                                mPowerManager = (PowerManager) host.getContext().getSystemService(Context.POWER_SERVICE);
+                            if (event.getActionMasked() == MotionEvent.ACTION_DOWN
+                                    && event.getY() < mStatusBarHeaderHeight) {
+                                if (time - mLastDownEvent < 300) {
+                                    callMethod(mPowerManager, "goToSleep", time);
+                                }
+                                mLastDownEvent = event.getEventTime();
+                            }
+                        }
+                    });
+                }
+
+                if (pref.getBoolean("trick_doubleTapStatusBar", false)) {
+                    findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController", param.classLoader, "startOpening", MotionEvent.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            param.setResult(null);
+                        }
+                    });
+                }
             }
             
         } else if (param.packageName.equals("android")) {
@@ -572,7 +605,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                         if (pref.getBoolean("trick_powerTorch", false)) {
                             if (mCameraManager == null) {
-                                mTorchAvailable = false;
                                 mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
                                 mCameraManager.registerTorchCallback(mTorchCallback, mHandler);
                                 try {
@@ -584,11 +616,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                         if (flashAvailable != null && flashAvailable && lensFacing != null &&
                                                 lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
                                             mCameraId = id;
-                                            mTorchAvailable = true;
                                         }
                                     }
                                 } catch (Exception e) {
-                                    mTorchAvailable = false;
                                 }
                             }
 
