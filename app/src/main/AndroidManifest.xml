@@ -33,6 +33,14 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".SettingsActivity$Receiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.darkeyes.tricks.SET_INTEGER" />
+                <action android:name="com.darkeyes.tricks.SET_BOOLEAN" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

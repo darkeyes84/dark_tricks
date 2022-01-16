@@ -27,6 +27,12 @@
         android:defaultValue="true" />
 
     <SwitchPreference
+        android:key="trick_batteryEstimate"
+        android:title="@string/batteryEstimate_title"
+        android:summary="@string/batteryEstimate_summary"
+        android:defaultValue="false" />
+
+    <SwitchPreference
         android:key="trick_hideVpn"
         android:title="@string/hideVpn_title"
         android:summary="@string/hideVpn_summary"
@@ -72,6 +78,12 @@
         android:key="trick_doubleTapLockScreen"
         android:title="@string/doubleTapLockScreen_title"
         android:summary="@string/doubleTapLockScreen_summary"
+        android:defaultValue="false" />
+
+    <SwitchPreference
+        android:key="trick_quickUnlock"
+        android:title="@string/quickUnlock_title"
+        android:summary="@string/quickUnlock_summary"
         android:defaultValue="false" />
 
     <SwitchPreference

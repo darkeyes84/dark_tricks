@@ -46,4 +46,8 @@
     <string name="doubleTapStatusBar_summary">Double tap on the status bar to turn off the screen</string>
     <string name="doubleTapLockScreen_title">Tap to sleep (lockscreen)</string>
     <string name="doubleTapLockScreen_summary">Double tap anywhere on the lockscreen to turn off the screen</string>
+    <string name="quickUnlock_title">Quick unlock</string>
+    <string name="quickUnlock_summary">Unavailable, recreate your PIN/password</string>
+    <string name="batteryEstimate_title">Battery duration estimate</string>
+    <string name="batteryEstimate_summary">Show battery duration estimate only when quick settings is expanded</string>
 </resources>

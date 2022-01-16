@@ -1,7 +1,12 @@
 package com.darkeyes.tricks;
 
+import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
+
+import android.app.AndroidAppHelper;
+import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Rect;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -19,6 +24,8 @@ import android.os.PowerManager;
 import android.os.SystemClock;
 import android.service.notification.StatusBarNotification;
 import android.telephony.TelephonyManager;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.ArrayMap;
 import android.view.GestureDetector;
 import android.view.HapticFeedbackConstants;
@@ -28,6 +35,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.widget.TextView;
 
 import java.io.File;
 
@@ -40,7 +48,9 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import static de.robv.android.xposed.XposedBridge.invokeOriginalMethod;
 import static de.robv.android.xposed.XposedHelpers.callMethod;
+import static de.robv.android.xposed.XposedHelpers.callStaticMethod;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
+import static de.robv.android.xposed.XposedHelpers.findClass;
 import static de.robv.android.xposed.XposedHelpers.getAdditionalInstanceField;
 import static de.robv.android.xposed.XposedHelpers.getBooleanField;
 import static de.robv.android.xposed.XposedHelpers.getIntField;
@@ -86,6 +96,10 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private int mStatusBarHeight = 0;
     private int mStatusBarHeaderHeight = 0;
     private long mLastDownEvent = 0L;
+    private Object mLockPatterUtils;
+    private Object mLockCallback;
+    private Object mKeyguardMonitor;
+    private ClassLoader classLoader;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -143,6 +157,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam param) {
 
         if (param.packageName.equals("com.android.systemui")) {
+            classLoader = param.classLoader;
             String CLASS = Build.VERSION.SDK_INT <= 30 ? "com.android.systemui.statusbar.policy.NetworkControllerImpl.Config"
                     : "com.android.settingslib.mobile.MobileMappings.Config";
             findAndHookMethod(CLASS, param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
@@ -385,7 +400,110 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     });
                 }
             }
-            
+
+            if (pref.getBoolean("trick_quickUnlock", false) && Build.VERSION.SDK_INT == 31) {
+                findAndHookMethod("com.android.keyguard.KeyguardPasswordViewController", param.classLoader, "onViewAttached", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        pref.reload();
+                        mLockPatterUtils = getObjectField(param.thisObject, "mLockPatternUtils");
+                        mLockCallback = getObjectField(param.thisObject, "mKeyguardSecurityCallback");
+                        mKeyguardMonitor = getObjectField(param.thisObject, "mKeyguardUpdateMonitor");
+                    }
+                });
+
+                findAndHookMethod("com.android.keyguard.KeyguardPinViewController", param.classLoader, "onViewAttached", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        pref.reload();
+                        mLockPatterUtils = getObjectField(param.thisObject, "mLockPatternUtils");
+                        mLockCallback = getObjectField(param.thisObject, "mKeyguardSecurityCallback");
+                        mKeyguardMonitor = getObjectField(param.thisObject, "mKeyguardUpdateMonitor");
+                    }
+                });
+
+                findAndHookMethod("com.android.keyguard.KeyguardPasswordView", param.classLoader, "onFinishInflate", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        TextView passwordEntry = (TextView) getObjectField(param.thisObject, "mPasswordEntry");
+                        passwordEntry.addTextChangedListener(new TextWatcher() {
+                            @Override
+                            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                            }
+
+                            @Override
+                            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                            }
+
+                            @Override
+                            public void afterTextChanged(Editable s) {
+                                String entry = passwordEntry.getText().toString();
+                                int passwordLength = pref.getInt("passwordLength", -1);
+                                if (entry.length() == passwordLength) {
+                                    int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
+                                    Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
+                                    Object password = callStaticMethod(credential, "createPassword", entry);
+                                    boolean valid = (boolean) callMethod(mLockPatterUtils,
+                                            "checkCredential", password, userId, (Object) null);
+                                    if (valid) {
+                                        callMethod(mLockCallback, "reportUnlockAttempt", userId, true, 0);
+                                        callMethod(mLockCallback, "dismiss", true, userId);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+
+                findAndHookMethod("com.android.keyguard.PasswordTextView", param.classLoader, "append", char.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        String entry = (String) getObjectField(param.thisObject, "mText");
+                        int passwordLength = pref.getInt("passwordLength", -1);
+                        if (entry.length() == passwordLength) {
+                            int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
+                            Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
+                            Object pin = callStaticMethod(credential, "createPin", entry);
+                            boolean valid = (boolean) callMethod(mLockPatterUtils,
+                                    "checkCredential", pin, userId, (Object) null);
+                            if (valid) {
+                                callMethod(mLockCallback, "reportUnlockAttempt", userId, true, 0);
+                                callMethod(mLockCallback, "dismiss", true, userId);
+                            }
+                        }
+                    }
+                });
+
+                findAndHookMethod("com.android.internal.widget.LockPatternUtils", param.classLoader, "throwIfCalledOnMainThread", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        param.setResult(null);
+                    }
+                });
+            }
+
+            if (pref.getBoolean("trick_batteryEstimate", false) && Build.VERSION.SDK_INT == 31) {
+                findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "updateBatteryMode", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        param.setResult(null);
+                    }
+                });
+
+                findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "setExpansion", boolean.class, float.class, float.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        Object mBattery = getObjectField(param.thisObject, "mBatteryRemainingIcon");
+                        int mode = getIntField(mBattery, "mShowPercentMode");
+                        float expansion = (boolean) param.args[0] ? 1f : (float) param.args[1];
+                        if ((expansion == 0f && mode != 1) || (expansion == 1f && mode != 3)) {
+                            callMethod(mBattery, "setPercentShowMode", expansion == 0f ? 1 : 3);
+                            callMethod(mBattery, "updatePercentText");
+                        }
+                    }
+                });
+            }
+
         } else if (param.packageName.equals("android")) {
             if (pref.getBoolean("trick_navbarAlwaysRight", true) && Build.VERSION.SDK_INT < 29) {
                 if (Build.VERSION.SDK_INT == 28) {
@@ -919,6 +1037,73 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
             }
+
+        } else if (param.packageName.equals("com.android.settings")) {
+            findAndHookMethod("com.android.settings.password.ChooseLockGeneric$ChooseLockGenericFragment", param.classLoader, "setUnlockMethod", String.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    String lock = (String) param.args[0];
+                    Context context = getContext();
+                    if (lock.equals("unlock_set_off") || lock.equals("unlock_set_none")) {
+                        if (context != null) {
+                            Intent password = new Intent("com.darkeyes.tricks.SET_INTEGER");
+                            password.setFlags(FLAG_RECEIVER_FOREGROUND);
+                            password.setPackage("com.darkeyes.tricks");
+                            password.putExtra("preference", "passwordLength");
+                            password.putExtra("value", -1);
+                            context.sendBroadcast(password);
+
+                            Intent unlock = new Intent("com.darkeyes.tricks.SET_BOOLEAN");
+                            unlock.setFlags(FLAG_RECEIVER_FOREGROUND);
+                            unlock.setPackage("com.darkeyes.tricks");
+                            unlock.putExtra("preference", "trick_quickUnlock");
+                            unlock.putExtra("value", false);
+                            context.sendBroadcast(unlock);
+                        }
+                    }
+                }
+            });
+
+            findAndHookMethod("com.android.settings.password.ChooseLockPattern$ChooseLockPatternFragment", param.classLoader, "startSaveAndFinish", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    Context context = getContext();
+                    if (context != null) {
+                        Intent password = new Intent("com.darkeyes.tricks.SET_INTEGER");
+                        password.setFlags(FLAG_RECEIVER_FOREGROUND);
+                        password.setPackage("com.darkeyes.tricks");
+                        password.putExtra("preference", "passwordLength");
+                        password.putExtra("value", -1);
+                        context.sendBroadcast(password);
+
+                        Intent unlock = new Intent("com.darkeyes.tricks.SET_BOOLEAN");
+                        unlock.setFlags(FLAG_RECEIVER_FOREGROUND);
+                        unlock.setPackage("com.darkeyes.tricks");
+                        unlock.putExtra("preference", "trick_quickUnlock");
+                        unlock.putExtra("value", false);
+                        context.sendBroadcast(unlock);
+                    }
+                }
+            });
+
+            findAndHookMethod("com.android.settings.password.ChooseLockPassword$ChooseLockPasswordFragment", param.classLoader, "startSaveAndFinish", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    Object mChosenPassword = getObjectField(param.thisObject, "mChosenPassword");
+                    int length = (int) callMethod(mChosenPassword, "size");
+
+                    Context context = getContext();
+                    if (context != null) {
+                        Intent password = new Intent("com.darkeyes.tricks.SET_INTEGER");
+                        password.setFlags(FLAG_RECEIVER_FOREGROUND);
+                        password.setPackage("com.darkeyes.tricks");
+                        password.putExtra("preference", "passwordLength");
+                        password.putExtra("value", length);
+                        context.sendBroadcast(password);
+                    }
+                }
+            });
+
         } else if (param.packageName.equals("com.microsoft.office.outlook")) {
             if (pref.getBoolean("trick_OutlookPolicy", false)) {
                 findAndHookMethod("com.acompli.accore.util.OutlookDevicePolicy", param.classLoader, "requiresDeviceManagement", new XC_MethodHook() {
@@ -936,5 +1121,15 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
         }
+    }
+
+    private Context getContext() {
+        Context context = null;
+        Application app = AndroidAppHelper.currentApplication();
+        try {
+            context = app.createPackageContext("com.darkeyes.tricks", 0);
+        } catch (PackageManager.NameNotFoundException ignored) {
+        }
+        return context;
     }
 }

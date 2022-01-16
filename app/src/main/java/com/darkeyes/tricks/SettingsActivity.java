@@ -1,6 +1,8 @@
 package com.darkeyes.tricks;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.content.pm.PackageManager;
@@ -21,12 +23,14 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
     private ListPreference lessNotifications;
     private PackageManager mPackageManager;
     private boolean mTorchAvailable;
+    private SwitchPreference quickUnlock;
+    private static SharedPreferences sp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getSharedPreferences("com.darkeyes.tricks_preferences", Context.MODE_WORLD_READABLE);
+        sp = getSharedPreferences("com.darkeyes.tricks_preferences", Context.MODE_WORLD_READABLE);
         addPreferencesFromResource(R.xml.pref_tricks);
 
         PreferenceScreen prefScreen = (PreferenceScreen) findPreference("prefScreen");
@@ -37,6 +41,8 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         SwitchPreference powerTorch = (SwitchPreference) findPreference("trick_powerTorch");
         SwitchPreference doubleTapStatusBar = (SwitchPreference) findPreference("trick_doubleTapStatusBar");
         SwitchPreference doubleTapLockScreen = (SwitchPreference) findPreference("trick_doubleTapLockScreen");
+        quickUnlock = (SwitchPreference) findPreference("trick_quickUnlock");
+        SwitchPreference batteryEstimate = (SwitchPreference) findPreference("trick_batteryEstimate");
         customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
         cursorControl = (ListPreference) findPreference("trick_cursorControl");
         lessNotifications = (ListPreference) findPreference("trick_lessNotifications");
@@ -60,6 +66,8 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         if (Build.VERSION.SDK_INT < 31) {
             prefScreen.removePreference(doubleTapStatusBar);
             prefScreen.removePreference(doubleTapLockScreen);
+            prefScreen.removePreference(quickUnlock);
+            prefScreen.removePreference(batteryEstimate);
         }
         if (!torchAvailable()) {
             prefScreen.removePreference(powerTorch);
@@ -70,6 +78,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
     protected void onResume() {
         super.onResume();
         getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
+        updateSummary();
     }
 
     @Override
@@ -110,6 +119,14 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
 
         cursorControl.setSummary(cursorControl.getEntry());
         lessNotifications.setSummary(lessNotifications.getEntry());
+
+        boolean checked = sp.getBoolean("trick_quickUnlock", false);
+        quickUnlock.setChecked(checked);
+        int passwordLength = sp.getInt("passwordLength", -1);
+        quickUnlock.setEnabled(passwordLength > 0);
+        quickUnlock.setSummary(passwordLength > 0
+                ? "Automatically unlock the device when the correct PIN/password is entered"
+                : "Unavailable, recreate your PIN/password");
     }
 
     private boolean torchAvailable() {
@@ -122,5 +139,33 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
             }
         }
         return mTorchAvailable;
+    }
+
+    public static class Receiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (sp == null)
+                sp = context.getSharedPreferences("com.darkeyes.tricks_preferences", Context.MODE_WORLD_READABLE);
+            String action = intent.getAction();
+            Bundle extras = intent.getExtras();
+
+            if ("com.darkeyes.tricks.SET_INTEGER".equals(action)) {
+                setInteger(extras);
+            } else if ("com.darkeyes.tricks.SET_BOOLEAN".equals(action)) {
+                setBoolean(extras);
+            }
+        }
+
+        private static void setInteger(Bundle extras) {
+            String preference = extras.getString("preference");
+            int value = extras.getInt("value");
+            sp.edit().putInt(preference, value).commit();
+        }
+
+        private static void setBoolean(Bundle extras) {
+            String preference = extras.getString("preference");
+            boolean value = extras.getBoolean("value");
+            sp.edit().putBoolean(preference, value).commit();
+        }
     }
 }
