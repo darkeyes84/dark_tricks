@@ -13,13 +13,13 @@ android {
             keyPassword keystoreProperties['keyPassword']
         }
     }
-    compileSdkVersion 31
+    compileSdk 32
     defaultConfig {
         applicationId "com.darkeyes.tricks"
         minSdkVersion 26
-        targetSdkVersion 31
-        versionCode 27
-        versionName '2.20'
+        targetSdk 32
+        versionCode 28
+        versionName '2.21'
         signingConfig signingConfigs.release
     }
     buildTypes {
@@ -35,11 +35,11 @@ android {
         sourceCompatibility = 1.8
         targetCompatibility = 1.8
     }
-    buildToolsVersion '31.0.0'
+    buildToolsVersion '32.0.0'
 }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     compileOnly 'de.robv.android.xposed:api:82'
-    implementation 'com.google.android.material:material:1.6.0-alpha01'
+    implementation 'com.google.android.material:material:1.6.0-beta01'
 }

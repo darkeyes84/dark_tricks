@@ -329,7 +329,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if ((pref.getBoolean("trick_doubleTapStatusBar", false) || (pref.getBoolean("trick_doubleTapLockScreen", false)))
-                    && Build.VERSION.SDK_INT == 31) {
+                    && Build.VERSION.SDK_INT >= 31) {
                 findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
@@ -401,7 +401,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
             }
 
-            if (pref.getBoolean("trick_quickUnlock", false) && Build.VERSION.SDK_INT == 31) {
+            if (pref.getBoolean("trick_quickUnlock", false) && Build.VERSION.SDK_INT >= 31) {
                 findAndHookMethod("com.android.keyguard.KeyguardPasswordViewController", param.classLoader, "onViewAttached", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
@@ -482,7 +482,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if (pref.getBoolean("trick_batteryEstimate", false) && Build.VERSION.SDK_INT == 31) {
+            if (pref.getBoolean("trick_batteryEstimate", false) && Build.VERSION.SDK_INT >= 31) {
                 findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "updateBatteryMode", new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
