@@ -18,8 +18,8 @@ android {
         applicationId "com.darkeyes.tricks"
         minSdkVersion 26
         targetSdk 32
-        versionCode 28
-        versionName '2.21'
+        versionCode 29
+        versionName '2.22'
         signingConfig signingConfigs.release
     }
     buildTypes {

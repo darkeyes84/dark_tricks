@@ -588,6 +588,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
                                 keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
                                 mAudioManager.dispatchMediaKeyEvent(keyEvent);
+                                callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
                             };
 
                             Runnable mVolumeDownLongPress = () -> {
@@ -600,6 +601,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
                                 keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
                                 mAudioManager.dispatchMediaKeyEvent(keyEvent);
+                                callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
                             };
 
                             setAdditionalInstanceField(param.thisObject, "mVolumeUpLongPress", mVolumeUpLongPress);
