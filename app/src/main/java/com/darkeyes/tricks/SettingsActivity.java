@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.EditTextPreference;
@@ -25,6 +26,8 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
     private boolean mTorchAvailable;
     private SwitchPreference quickUnlock;
     private static SharedPreferences sp;
+    private ListPreference gestureHeight;
+    private PreferenceScreen prefScreen;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,7 +36,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         sp = getSharedPreferences("com.darkeyes.tricks_preferences", Context.MODE_WORLD_READABLE);
         addPreferencesFromResource(R.xml.pref_tricks);
 
-        PreferenceScreen prefScreen = (PreferenceScreen) findPreference("prefScreen");
+        prefScreen = (PreferenceScreen) findPreference("prefScreen");
         SwitchPreference forceDarkTheme = (SwitchPreference) findPreference("trick_forceDarkTheme");
         SwitchPreference useKeyguardPhone = (SwitchPreference) findPreference("trick_useKeyguardPhone");
         SwitchPreference navbarAlwaysRight = (SwitchPreference) findPreference("trick_navbarAlwaysRight");
@@ -46,6 +49,8 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
         cursorControl = (ListPreference) findPreference("trick_cursorControl");
         lessNotifications = (ListPreference) findPreference("trick_lessNotifications");
+        SwitchPreference smallClock = (SwitchPreference) findPreference("trick_smallClock");
+        gestureHeight = (ListPreference) findPreference("trick_gestureHeight");
 
         getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
         updateSummary();
@@ -68,6 +73,8 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
             prefScreen.removePreference(doubleTapLockScreen);
             prefScreen.removePreference(quickUnlock);
             prefScreen.removePreference(batteryEstimate);
+            prefScreen.removePreference(smallClock);
+            prefScreen.removePreference(gestureHeight);
         }
         if (!torchAvailable()) {
             prefScreen.removePreference(powerTorch);
@@ -108,6 +115,11 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
     }
 
     private void updateSummary() {
+        Resources resources = getResources();
+        int resourceId = resources.getIdentifier("config_navBarInteractionMode", "integer", "android");
+        if (resources.getInteger(resourceId) != 2)
+            prefScreen.removePreference(gestureHeight);
+
         String carrierText = customCarrierText.getText();
         if (carrierText == null || carrierText.isEmpty()) {
             customCarrierText.setSummary("Default");
@@ -119,6 +131,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
 
         cursorControl.setSummary(cursorControl.getEntry());
         lessNotifications.setSummary(lessNotifications.getEntry());
+        gestureHeight.setSummary("Swipe below " + gestureHeight.getEntry() + " for back gesture");
 
         boolean checked = sp.getBoolean("trick_quickUnlock", false);
         quickUnlock.setChecked(checked);

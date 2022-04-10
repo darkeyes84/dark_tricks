@@ -50,4 +50,11 @@
     <string name="quickUnlock_summary">Unavailable, recreate your PIN/password</string>
     <string name="batteryEstimate_title">Battery duration estimate</string>
     <string name="batteryEstimate_summary">Show battery duration estimate only when quick settings is expanded</string>
+    <string name="smallClock_title">Lockscreen small clock</string>
+    <string name="smallClock_summary">Force small clock on lockscreen even without notifications</string>
+    <string name="gestureHeight_title">Back gesture height</string>
+    <string name="gestureHeight_disabled">Disabled</string>
+    <string name="gestureHeight_top">3/4 of screen</string>
+    <string name="gestureHeight_half">1/2 of screen</string>
+    <string name="gestureHeight_bottom">1/4 of screen</string>
 </resources>

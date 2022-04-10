@@ -7,6 +7,7 @@ import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -53,6 +54,7 @@ import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.findClass;
 import static de.robv.android.xposed.XposedHelpers.getAdditionalInstanceField;
 import static de.robv.android.xposed.XposedHelpers.getBooleanField;
+import static de.robv.android.xposed.XposedHelpers.getFloatField;
 import static de.robv.android.xposed.XposedHelpers.getIntField;
 import static de.robv.android.xposed.XposedHelpers.getObjectField;
 import static de.robv.android.xposed.XposedHelpers.setAdditionalInstanceField;
@@ -500,6 +502,35 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             callMethod(mBattery, "setPercentShowMode", expansion == 0f ? 1 : 3);
                             callMethod(mBattery, "updatePercentText");
                         }
+                    }
+                });
+            }
+
+            if (pref.getBoolean("trick_smallClock", false) && Build.VERSION.SDK_INT >= 31) {
+                findAndHookMethod("com.android.keyguard.KeyguardClockSwitch", param.classLoader, "animateClockChange", boolean.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        param.args[0] = false;
+                    }
+                });
+            }
+
+            int gestureHeight = Integer.parseInt(pref.getString("trick_gestureHeight", "0"));
+            if (gestureHeight != 0) {
+                findAndHookMethod("com.android.systemui.navigationbar.gestural.EdgeBackGestureHandler", param.classLoader, "isWithinInsets", int.class, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        float bottom = getFloatField(param.thisObject, "mBottomGestureHeight");
+                        Point displaySize = (Point) getObjectField(param.thisObject, "mDisplaySize");
+                        int height;
+                        if (gestureHeight == 1)
+                            height = (3 * displaySize.y) / 4;
+                        else if (gestureHeight == 2)
+                            height = displaySize.y / 2;
+                        else
+                            height = displaySize.y / 4;
+                        if ((int) param.args[1] < (displaySize.y - bottom - height))
+                            param.setResult(false);
                     }
                 });
             }

@@ -21,6 +21,12 @@
         android:defaultValue="true" />
 
     <SwitchPreference
+        android:key="trick_smallClock"
+        android:title="@string/smallClock_title"
+        android:summary="@string/smallClock_summary"
+        android:defaultValue="false" />
+
+    <SwitchPreference
         android:key="trick_hideNextAlarm"
         android:title="@string/hideNextAlarm_title"
         android:summary="@string/hideNextAlarm_summary"
@@ -79,6 +85,13 @@
         android:title="@string/doubleTapLockScreen_title"
         android:summary="@string/doubleTapLockScreen_summary"
         android:defaultValue="false" />
+
+    <ListPreference
+        android:key="trick_gestureHeight"
+        android:title="@string/gestureHeight_title"
+        android:entries="@array/gestureHeight_entries"
+        android:entryValues="@array/gestureHeight_values"
+        android:defaultValue="0" />
 
     <SwitchPreference
         android:key="trick_quickUnlock"
