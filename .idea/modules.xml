@@ -4,6 +4,8 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/DarkTricks.iml" filepath="$PROJECT_DIR$/.idea/DarkTricks.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/DarkTricks.app.iml" filepath="$PROJECT_DIR$/.idea/modules/app/DarkTricks.app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/DarkTricks.app.main.iml" filepath="$PROJECT_DIR$/.idea/modules/app/DarkTricks.app.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app/DarkTricks.app.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/app/DarkTricks.app.unitTest.iml" />
     </modules>
   </component>
 </project>

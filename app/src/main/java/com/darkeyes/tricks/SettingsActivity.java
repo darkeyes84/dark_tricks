@@ -131,7 +131,10 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
 
         cursorControl.setSummary(cursorControl.getEntry());
         lessNotifications.setSummary(lessNotifications.getEntry());
-        gestureHeight.setSummary("Swipe below " + gestureHeight.getEntry() + " for back gesture");
+        if ("Everywhere".equals(gestureHeight.getEntry()))
+            gestureHeight.setSummary("Swipe everywhere for back gesture");
+        else
+            gestureHeight.setSummary("Swipe below " + gestureHeight.getEntry() + " for back gesture");
 
         boolean checked = sp.getBoolean("trick_quickUnlock", false);
         quickUnlock.setChecked(checked);

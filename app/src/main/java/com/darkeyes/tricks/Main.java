@@ -36,6 +36,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.ViewGroup;
 import android.widget.TextView;
 
 import java.io.File;
@@ -524,13 +525,29 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         Point displaySize = (Point) getObjectField(param.thisObject, "mDisplaySize");
                         int height;
                         if (gestureHeight == 1)
-                            height = (3 * displaySize.y) / 4;
-                        else if (gestureHeight == 2)
-                            height = displaySize.y / 2;
+                            height = (2 * displaySize.y) / 3;
                         else
-                            height = displaySize.y / 4;
+                            height = displaySize.y / 3;
+
                         if ((int) param.args[1] < (displaySize.y - bottom - height))
                             param.setResult(false);
+                    }
+                });
+            }
+
+            if (pref.getBoolean("trick_quickPulldown", true) && Build.VERSION.SDK_INT >= 31) {
+                findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "isOpenQsEvent", MotionEvent.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        if ((boolean) param.getResult() == false) {
+                            MotionEvent event = (MotionEvent) param.args[0];
+                            ViewGroup view = (ViewGroup) getObjectField(param.thisObject, "mView");
+                            int state = (int) getObjectField(param.thisObject, "mBarState");
+                            float w = view.getMeasuredWidth();
+                            float x = event.getX();
+
+                            param.setResult(x > 3.f * w / 4.f && state == 0);
+                        }
                     }
                 });
             }

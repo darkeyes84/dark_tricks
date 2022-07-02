@@ -86,6 +86,12 @@
         android:summary="@string/doubleTapLockScreen_summary"
         android:defaultValue="false" />
 
+    <SwitchPreference
+        android:key="trick_quickPulldown"
+        android:title="@string/quickPulldown_title"
+        android:summary="@string/quickPulldown_summary"
+        android:defaultValue="true" />
+
     <ListPreference
         android:key="trick_gestureHeight"
         android:title="@string/gestureHeight_title"
