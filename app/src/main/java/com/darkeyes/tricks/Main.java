@@ -314,13 +314,23 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             carrierText = pref.getString("trick_customCarrierText", "");
             if (carrierText != null && !carrierText.isEmpty()) {
-                String CARRIER = Build.VERSION.SDK_INT >= 30 ? "com.android.systemui.qs.carrier.QSCarrier" : "com.android.systemui.qs.QSCarrier";
-                findAndHookMethod(CARRIER, param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        param.args[0] = carrierText.trim().isEmpty() ? "" : carrierText;
-                    }
-                });
+                if (Build.VERSION.SDK_INT >= 33) {
+                    findAndHookMethod("com.android.systemui.qs.carrier.QSCarrier", param.classLoader, "updateState", "com.android.systemui.qs.carrier.CellSignalState", boolean.class, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            TextView mCarrierText = (TextView) getObjectField(param.thisObject, "mCarrierText");
+                            mCarrierText.setText(carrierText.trim().isEmpty() ? "" : carrierText);
+                        }
+                    });
+                } else {
+                    String CARRIER = Build.VERSION.SDK_INT >= 30 ? "com.android.systemui.qs.carrier.QSCarrier" : "com.android.systemui.qs.QSCarrier";
+                    findAndHookMethod(CARRIER, param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            param.args[0] = carrierText.trim().isEmpty() ? "" : carrierText;
+                        }
+                    });
+                }
 
                 String CARRIERTEXT = Build.VERSION.SDK_INT <= 30 ? "com.android.keyguard.CarrierTextController" : "com.android.keyguard.CarrierTextManager";
                 findAndHookMethod(CARRIERTEXT, param.classLoader, "postToCallback", CARRIERTEXT + ".CarrierTextCallbackInfo", new XC_MethodHook() {
@@ -333,74 +343,78 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             if ((pref.getBoolean("trick_doubleTapStatusBar", false) || (pref.getBoolean("trick_doubleTapLockScreen", false)))
                     && Build.VERSION.SDK_INT >= 31) {
-                findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        mNotificationPanelViewController = param.thisObject;
-                        mStatusBarHeight = getIntField(param.thisObject, "mStatusBarMinHeight");
-                        mStatusBarHeaderHeight = getIntField(param.thisObject, "mStatusBarHeaderHeightKeyguard");
-                        View view = (View) getObjectField(param.thisObject, "mView");
-                        if (mPowerManager == null)
-                            mPowerManager = (PowerManager) getObjectField(param.thisObject, "mPowerManager");
-                        if (mDoubleTapGesture == null) {
-                            mDoubleTapGesture = new GestureDetector(view.getContext(),
-                                    new GestureDetector.SimpleOnGestureListener() {
-                                        @Override
-                                        public boolean onDoubleTap(MotionEvent e) {
-                                            callMethod(mPowerManager, "goToSleep", e.getEventTime());
-                                            return true;
-                                        }
-                                    });
-                        }
-                    }
-                });
-
-                findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController$TouchHandler", param.classLoader, "onTouch", View.class, MotionEvent.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        if (param.args[0].getClass().getName().equals("com.android.systemui.statusbar.phone.NotificationPanelView")
-                                && mNotificationPanelViewController != null && mDoubleTapGesture != null) {
-                            MotionEvent event = (MotionEvent) param.args[1];
-                            boolean isExpanded = getBooleanField(mNotificationPanelViewController, "mQsExpanded");
-                            boolean isPulsing = getBooleanField(mNotificationPanelViewController, "mPulsing");
-                            boolean isDozing = getBooleanField(mNotificationPanelViewController, "mDozing");
-                            boolean isKeyguard = getIntField(mNotificationPanelViewController, "mBarState") == 1
-                                    && !isPulsing && !isDozing;
-                            boolean isStatusBar = event.getY() < mStatusBarHeight && !isExpanded;
-                            if ((isKeyguard && pref.getBoolean("trick_doubleTapLockScreen", false))
-                                    || (isStatusBar && pref.getBoolean("trick_doubleTapStatusBar", false)))
-                                mDoubleTapGesture.onTouchEvent(event);
-                        }
-                    }
-                });
-
-                if (pref.getBoolean("trick_doubleTapLockScreen", false)) {
-                    findAndHookMethod("com.android.systemui.statusbar.DragDownHelper", param.classLoader, "onInterceptTouchEvent", MotionEvent.class, new XC_MethodHook() {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    //TODO
+                } else {
+                    findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            MotionEvent event = (MotionEvent) param.args[0];
-                            long time = event.getEventTime();
-                            View host = (View) getObjectField(param.thisObject, "host");
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            mNotificationPanelViewController = param.thisObject;
+                            mStatusBarHeight = getIntField(param.thisObject, "mStatusBarMinHeight");
+                            mStatusBarHeaderHeight = getIntField(param.thisObject, "mStatusBarHeaderHeightKeyguard");
+                            View view = (View) getObjectField(param.thisObject, "mView");
                             if (mPowerManager == null)
-                                mPowerManager = (PowerManager) host.getContext().getSystemService(Context.POWER_SERVICE);
-                            if (event.getActionMasked() == MotionEvent.ACTION_DOWN
-                                    && event.getY() < mStatusBarHeaderHeight) {
-                                if (time - mLastDownEvent < 300) {
-                                    callMethod(mPowerManager, "goToSleep", time);
-                                }
-                                mLastDownEvent = event.getEventTime();
+                                mPowerManager = (PowerManager) getObjectField(param.thisObject, "mPowerManager");
+                            if (mDoubleTapGesture == null) {
+                                mDoubleTapGesture = new GestureDetector(view.getContext(),
+                                        new GestureDetector.SimpleOnGestureListener() {
+                                            @Override
+                                            public boolean onDoubleTap(MotionEvent e) {
+                                                callMethod(mPowerManager, "goToSleep", e.getEventTime());
+                                                return true;
+                                            }
+                                        });
                             }
                         }
                     });
-                }
 
-                if (pref.getBoolean("trick_doubleTapStatusBar", false)) {
-                    findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController", param.classLoader, "startOpening", MotionEvent.class, new XC_MethodHook() {
+                    findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController$TouchHandler", param.classLoader, "onTouch", View.class, MotionEvent.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
-                            param.setResult(null);
+                            if (param.args[0].getClass().getName().equals("com.android.systemui.statusbar.phone.NotificationPanelView")
+                                    && mNotificationPanelViewController != null && mDoubleTapGesture != null) {
+                                MotionEvent event = (MotionEvent) param.args[1];
+                                boolean isExpanded = getBooleanField(mNotificationPanelViewController, "mQsExpanded");
+                                boolean isPulsing = getBooleanField(mNotificationPanelViewController, "mPulsing");
+                                boolean isDozing = getBooleanField(mNotificationPanelViewController, "mDozing");
+                                boolean isKeyguard = getIntField(mNotificationPanelViewController, "mBarState") == 1
+                                        && !isPulsing && !isDozing;
+                                boolean isStatusBar = event.getY() < mStatusBarHeight && !isExpanded;
+                                if ((isKeyguard && pref.getBoolean("trick_doubleTapLockScreen", false))
+                                        || (isStatusBar && pref.getBoolean("trick_doubleTapStatusBar", false)))
+                                    mDoubleTapGesture.onTouchEvent(event);
+                            }
                         }
                     });
+
+                    if (pref.getBoolean("trick_doubleTapLockScreen", false)) {
+                        findAndHookMethod("com.android.systemui.statusbar.DragDownHelper", param.classLoader, "onInterceptTouchEvent", MotionEvent.class, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+                                MotionEvent event = (MotionEvent) param.args[0];
+                                long time = event.getEventTime();
+                                View host = (View) getObjectField(param.thisObject, "host");
+                                if (mPowerManager == null)
+                                    mPowerManager = (PowerManager) host.getContext().getSystemService(Context.POWER_SERVICE);
+                                if (event.getActionMasked() == MotionEvent.ACTION_DOWN
+                                        && event.getY() < mStatusBarHeaderHeight) {
+                                    if (time - mLastDownEvent < 300) {
+                                        callMethod(mPowerManager, "goToSleep", time);
+                                    }
+                                    mLastDownEvent = event.getEventTime();
+                                }
+                            }
+                        });
+                    }
+
+                    if (pref.getBoolean("trick_doubleTapStatusBar", false)) {
+                        findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController", param.classLoader, "startOpening", MotionEvent.class, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+                                param.setResult(null);
+                            }
+                        });
+                    }
                 }
             }
 
@@ -458,24 +472,28 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
 
-                findAndHookMethod("com.android.keyguard.PasswordTextView", param.classLoader, "append", char.class, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        String entry = (String) getObjectField(param.thisObject, "mText");
-                        int passwordLength = pref.getInt("passwordLength", -1);
-                        if (entry.length() == passwordLength) {
-                            int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
-                            Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
-                            Object pin = callStaticMethod(credential, "createPin", entry);
-                            boolean valid = (boolean) callMethod(mLockPatterUtils,
-                                    "checkCredential", pin, userId, (Object) null);
-                            if (valid) {
-                                callMethod(mLockCallback, "reportUnlockAttempt", userId, true, 0);
-                                callMethod(mLockCallback, "dismiss", true, userId);
+                if (Build.VERSION.SDK_INT >= 33) {
+                    //TODO
+                } else {
+                    findAndHookMethod("com.android.keyguard.PasswordTextView", param.classLoader, "append", char.class, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            String entry = (String) getObjectField(param.thisObject, "mText");
+                            int passwordLength = pref.getInt("passwordLength", -1);
+                            if (entry.length() == passwordLength) {
+                                int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
+                                Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
+                                Object pin = callStaticMethod(credential, "createPin", entry);
+                                boolean valid = (boolean) callMethod(mLockPatterUtils,
+                                        "checkCredential", pin, userId, (Object) null);
+                                if (valid) {
+                                    callMethod(mLockCallback, "reportUnlockAttempt", userId, true, 0);
+                                    callMethod(mLockCallback, "dismiss", true, userId);
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
 
                 findAndHookMethod("com.android.internal.widget.LockPatternUtils", param.classLoader, "throwIfCalledOnMainThread", new XC_MethodHook() {
                     @Override
@@ -486,28 +504,32 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_batteryEstimate", false) && Build.VERSION.SDK_INT >= 31) {
-                findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "updateBatteryMode", new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        param.setResult(null);
-                    }
-                });
-
-                findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "setExpansion", boolean.class, float.class, float.class, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        Object mBattery = getObjectField(param.thisObject, "mBatteryRemainingIcon");
-                        int mode = getIntField(mBattery, "mShowPercentMode");
-                        float expansion = (boolean) param.args[0] ? 1f : (float) param.args[1];
-                        if ((expansion == 0f && mode != 1) || (expansion == 1f && mode != 3)) {
-                            callMethod(mBattery, "setPercentShowMode", expansion == 0f ? 1 : 3);
-                            callMethod(mBattery, "updatePercentText");
+                if (Build.VERSION.SDK_INT >= 33) {
+                    //TODO
+                } else {
+                    findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "updateBatteryMode", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            param.setResult(null);
                         }
-                    }
-                });
+                    });
+
+                    findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "setExpansion", boolean.class, float.class, float.class, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            Object mBattery = getObjectField(param.thisObject, "mBatteryRemainingIcon");
+                            int mode = getIntField(mBattery, "mShowPercentMode");
+                            float expansion = (boolean) param.args[0] ? 1f : (float) param.args[1];
+                            if ((expansion == 0f && mode != 1) || (expansion == 1f && mode != 3)) {
+                                callMethod(mBattery, "setPercentShowMode", expansion == 0f ? 1 : 3);
+                                callMethod(mBattery, "updatePercentText");
+                            }
+                        }
+                    });
+                }
             }
 
-            if (pref.getBoolean("trick_smallClock", false) && Build.VERSION.SDK_INT >= 31) {
+            if (pref.getBoolean("trick_smallClock", false) && Build.VERSION.SDK_INT == 31) {
                 findAndHookMethod("com.android.keyguard.KeyguardClockSwitch", param.classLoader, "animateClockChange", boolean.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
@@ -518,38 +540,46 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             int gestureHeight = Integer.parseInt(pref.getString("trick_gestureHeight", "0"));
             if (gestureHeight != 0) {
-                findAndHookMethod("com.android.systemui.navigationbar.gestural.EdgeBackGestureHandler", param.classLoader, "isWithinInsets", int.class, int.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        float bottom = getFloatField(param.thisObject, "mBottomGestureHeight");
-                        Point displaySize = (Point) getObjectField(param.thisObject, "mDisplaySize");
-                        int height;
-                        if (gestureHeight == 1)
-                            height = (2 * displaySize.y) / 3;
-                        else
-                            height = displaySize.y / 3;
+                if (Build.VERSION.SDK_INT >= 33) {
+                    //TODO
+                } else {
+                    findAndHookMethod("com.android.systemui.navigationbar.gestural.EdgeBackGestureHandler", param.classLoader, "isWithinInsets", int.class, int.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            float bottom = getFloatField(param.thisObject, "mBottomGestureHeight");
+                            Point displaySize = (Point) getObjectField(param.thisObject, "mDisplaySize");
+                            int height;
+                            if (gestureHeight == 1)
+                                height = (2 * displaySize.y) / 3;
+                            else
+                                height = displaySize.y / 3;
 
-                        if ((int) param.args[1] < (displaySize.y - bottom - height))
-                            param.setResult(false);
-                    }
-                });
+                            if ((int) param.args[1] < (displaySize.y - bottom - height))
+                                param.setResult(false);
+                        }
+                    });
+                }
             }
 
             if (pref.getBoolean("trick_quickPulldown", true) && Build.VERSION.SDK_INT >= 31) {
-                findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "isOpenQsEvent", MotionEvent.class, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if ((boolean) param.getResult() == false) {
-                            MotionEvent event = (MotionEvent) param.args[0];
-                            ViewGroup view = (ViewGroup) getObjectField(param.thisObject, "mView");
-                            int state = (int) getObjectField(param.thisObject, "mBarState");
-                            float w = view.getMeasuredWidth();
-                            float x = event.getX();
+                if (Build.VERSION.SDK_INT >= 33) {
+                    //TODO
+                } else {
+                    findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "isOpenQsEvent", MotionEvent.class, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            if ((boolean) param.getResult() == false) {
+                                MotionEvent event = (MotionEvent) param.args[0];
+                                ViewGroup view = (ViewGroup) getObjectField(param.thisObject, "mView");
+                                int state = (int) getObjectField(param.thisObject, "mBarState");
+                                float w = view.getMeasuredWidth();
+                                float x = event.getX();
 
-                            param.setResult(x > 3.f * w / 4.f && state == 0);
+                                param.setResult(x > 3.f * w / 4.f && state == 0);
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
 
         } else if (param.packageName.equals("android")) {
@@ -835,220 +865,226 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_proximityWakeUp", true)) {
-                findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", "com.android.internal.app.IAppOpsService", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        mWakeUpContext = (Context) getObjectField(param.thisObject, "mContext");
-                        mWakeUpHandler = (Handler) getObjectField(param.thisObject, "mHandler");
-                        if (mSensorManager == null)
-                            mSensorManager = (SensorManager) mWakeUpContext.getSystemService(Context.SENSOR_SERVICE);
-                        if (mProximitySensor == null)
-                            mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-                        if (mPowerManager == null)
-                            mPowerManager = (PowerManager) mWakeUpContext.getSystemService(Context.POWER_SERVICE);
-                        if (mTelephonyManager == null)
-                            mTelephonyManager = (TelephonyManager) mWakeUpContext.getSystemService(Context.TELEPHONY_SERVICE);
-                        if (mWakeUpWakeLock == null)
-                            mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
-                    }
-                });
+                if (Build.VERSION.SDK_INT >= 33) {
+                    //TODO
+                } else {
+                    findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", "com.android.internal.app.IAppOpsService", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            mWakeUpContext = (Context) getObjectField(param.thisObject, "mContext");
+                            mWakeUpHandler = (Handler) getObjectField(param.thisObject, "mHandler");
+                            if (mSensorManager == null)
+                                mSensorManager = (SensorManager) mWakeUpContext.getSystemService(Context.SENSOR_SERVICE);
+                            if (mProximitySensor == null)
+                                mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+                            if (mPowerManager == null)
+                                mPowerManager = (PowerManager) mWakeUpContext.getSystemService(Context.POWER_SERVICE);
+                            if (mTelephonyManager == null)
+                                mTelephonyManager = (TelephonyManager) mWakeUpContext.getSystemService(Context.TELEPHONY_SERVICE);
+                            if (mWakeUpWakeLock == null)
+                                mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
+                        }
+                    });
 
-                if (Build.VERSION.SDK_INT <= 30) {
-                    findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeUpInternal", long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
+                    if (Build.VERSION.SDK_INT <= 30) {
+                        findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeUpInternal", long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+
+                                Runnable mWakeUp = () -> {
+                                    long ident = Binder.clearCallingIdentity();
+                                    try {
+                                        invokeOriginalMethod(param.method, param.thisObject, param.args);
+                                    } catch (Throwable t) {
+                                    } finally {
+                                        Binder.restoreCallingIdentity(ident);
+                                    }
+                                };
+
+                                if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
+                                    if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                        param.setResult(null);
+                                        return;
+                                    }
+                                    Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                                    msg.obj = mWakeUp;
+                                    mWakeUpHandler.sendMessageDelayed(msg, 100);
+
+                                    synchronized (mWakeUpWakeLock) {
+                                        mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
+                                        mWakeUpListener = new SensorEventListener() {
+                                            @Override
+                                            public void onSensorChanged(SensorEvent event) {
+                                                if (mWakeUpWakeLock.isHeld())
+                                                    mWakeUpWakeLock.release();
+                                                if (mWakeUpListener != null) {
+                                                    mSensorManager.unregisterListener(mWakeUpListener);
+                                                    mWakeUpListener = null;
+                                                }
+                                                if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                                    param.setResult(null);
+                                                    return;
+                                                }
+                                                mWakeUpHandler.removeMessages(MSG_WAKE_UP);
+                                                if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                    mCameraGesture = true;
+                                                    mWakeUp.run();
+                                                } else
+                                                    mCameraGesture = false;
+                                            }
+
+                                            @Override
+                                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                            }
+                                        };
+                                    }
+                                    mSensorManager.registerListener(mWakeUpListener,
+                                            mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                    param.setResult(null);
+                                }
+                            }
+                        });
+                    } else {
+                        findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeDisplayGroup", int.class, long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+
+                                Runnable mWakeUp = () -> {
+                                    long ident = Binder.clearCallingIdentity();
+                                    try {
+                                        invokeOriginalMethod(param.method, param.thisObject, param.args);
+                                    } catch (Throwable ignored) {
+                                    } finally {
+                                        Binder.restoreCallingIdentity(ident);
+                                    }
+                                };
+
+                                if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
+                                    if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                        param.setResult(null);
+                                        return;
+                                    }
+                                    Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                                    msg.obj = mWakeUp;
+                                    mWakeUpHandler.sendMessageDelayed(msg, 100);
+
+                                    synchronized (mWakeUpWakeLock) {
+                                        mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
+                                        mWakeUpListener = new SensorEventListener() {
+                                            @Override
+                                            public void onSensorChanged(SensorEvent event) {
+                                                if (mWakeUpWakeLock.isHeld())
+                                                    mWakeUpWakeLock.release();
+                                                if (mWakeUpListener != null) {
+                                                    mSensorManager.unregisterListener(mWakeUpListener);
+                                                    mWakeUpListener = null;
+                                                }
+                                                if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                                    param.setResult(null);
+                                                    return;
+                                                }
+                                                mWakeUpHandler.removeMessages(MSG_WAKE_UP);
+                                                if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                    mCameraGesture = true;
+                                                    mWakeUp.run();
+                                                } else
+                                                    mCameraGesture = false;
+                                            }
+
+                                            @Override
+                                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                            }
+                                        };
+                                    }
+                                    mSensorManager.registerListener(mWakeUpListener,
+                                            mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                    param.setResult(null);
+                                }
+                            }
+                        });
+                    }
+
+                    String CLASS = Build.VERSION.SDK_INT >= 30 ? "com.android.server.power.PowerManagerService$PowerManagerHandlerCallback" : "com.android.server.power.PowerManagerService$PowerManagerHandler";
+                    findAndHookMethod(CLASS, param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
+                            Message msg = (Message) param.args[0];
 
-                            Runnable mWakeUp = () -> {
-                                long ident = Binder.clearCallingIdentity();
-                                try {
-                                    invokeOriginalMethod(param.method, param.thisObject, param.args);
-                                } catch (Throwable t) {
-                                } finally {
-                                    Binder.restoreCallingIdentity(ident);
-                                }
-                            };
-
-                            if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
-                                if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                    param.setResult(null);
-                                    return;
-                                }
-                                Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
-                                msg.obj = mWakeUp;
-                                mWakeUpHandler.sendMessageDelayed(msg, 100);
-
+                            if (msg.what == MSG_WAKE_UP) {
                                 synchronized (mWakeUpWakeLock) {
-                                    mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
-                                    mWakeUpListener = new SensorEventListener() {
-                                        @Override
-                                        public void onSensorChanged(SensorEvent event) {
-                                            if (mWakeUpWakeLock.isHeld())
-                                                mWakeUpWakeLock.release();
-                                            if (mWakeUpListener != null) {
-                                                mSensorManager.unregisterListener(mWakeUpListener);
-                                                mWakeUpListener = null;
-                                            }
-                                            if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                                param.setResult(null);
-                                                return;
-                                            }
-                                            mWakeUpHandler.removeMessages(MSG_WAKE_UP);
-                                            if (event.values[0] >= mProximitySensor.getMaximumRange()) {
-                                                mCameraGesture = true;
-                                                mWakeUp.run();
-                                            } else
-                                                mCameraGesture = false;
-                                        }
-
-                                        @Override
-                                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                        }
-                                    };
+                                    if (mWakeUpWakeLock.isHeld())
+                                        mWakeUpWakeLock.release();
+                                    if (mWakeUpListener != null) {
+                                        mSensorManager.unregisterListener(mWakeUpListener);
+                                        mWakeUpListener = null;
+                                    }
                                 }
-                                mSensorManager.registerListener(mWakeUpListener,
-                                        mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
-                                param.setResult(null);
+                                mCameraGesture = true;
+                                ((Runnable) msg.obj).run();
                             }
                         }
                     });
-                } else {
-                    findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeDisplayGroup", int.class, long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
+
+                    if (Build.VERSION.SDK_INT <= 30) {
+                        findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+                                if (!mPowerManager.isInteractive())
+                                    param.setResult(null);
+                            }
+                        });
+                    } else {
+                        findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", long.class, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+                                if (!mPowerManager.isInteractive())
+                                    param.setResult(null);
+                            }
+                        });
+                    }
+
+                    findAndHookMethod("com.android.server.GestureLauncherService", param.classLoader, "handleCameraGesture", boolean.class, int.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
-
-                            Runnable mWakeUp = () -> {
-                                long ident = Binder.clearCallingIdentity();
-                                try {
-                                    invokeOriginalMethod(param.method, param.thisObject, param.args);
-                                } catch (Throwable ignored) {
-                                } finally {
-                                    Binder.restoreCallingIdentity(ident);
-                                }
-                            };
-
-                            if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
-                                if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                    param.setResult(null);
-                                    return;
-                                }
-                                Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
-                                msg.obj = mWakeUp;
-                                mWakeUpHandler.sendMessageDelayed(msg, 100);
-
-                                synchronized (mWakeUpWakeLock) {
-                                    mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
-                                    mWakeUpListener = new SensorEventListener() {
-                                        @Override
-                                        public void onSensorChanged(SensorEvent event) {
-                                            if (mWakeUpWakeLock.isHeld())
-                                                mWakeUpWakeLock.release();
-                                            if (mWakeUpListener != null) {
-                                                mSensorManager.unregisterListener(mWakeUpListener);
-                                                mWakeUpListener = null;
-                                            }
-                                            if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                                param.setResult(null);
-                                                return;
-                                            }
-                                            mWakeUpHandler.removeMessages(MSG_WAKE_UP);
-                                            if (event.values[0] >= mProximitySensor.getMaximumRange()) {
-                                                mCameraGesture = true;
-                                                mWakeUp.run();
-                                            } else
-                                                mCameraGesture = false;
-                                        }
-
-                                        @Override
-                                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                        }
-                                    };
-                                }
-                                mSensorManager.registerListener(mWakeUpListener,
-                                        mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
-                                param.setResult(null);
-                            }
+                            if (!mCameraGesture)
+                                param.setResult(false);
                         }
                     });
                 }
-
-                String CLASS = Build.VERSION.SDK_INT >= 30 ? "com.android.server.power.PowerManagerService$PowerManagerHandlerCallback" : "com.android.server.power.PowerManagerService$PowerManagerHandler";
-                findAndHookMethod(CLASS , param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        Message msg = (Message) param.args[0];
-
-                        if (msg.what == MSG_WAKE_UP) {
-                            synchronized (mWakeUpWakeLock) {
-                                if (mWakeUpWakeLock.isHeld())
-                                    mWakeUpWakeLock.release();
-                                if (mWakeUpListener != null) {
-                                    mSensorManager.unregisterListener(mWakeUpListener);
-                                    mWakeUpListener = null;
-                                }
-                            }
-                            mCameraGesture = true;
-                            ((Runnable) msg.obj).run();
-                        }
-                    }
-                });
-
-                if (Build.VERSION.SDK_INT <= 30) {
-                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            if (!mPowerManager.isInteractive())
-                                param.setResult(null);
-                        }
-                    });
-                } else {
-                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", long.class, new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            if (!mPowerManager.isInteractive())
-                                param.setResult(null);
-                        }
-                    });
-                }
-
-                findAndHookMethod("com.android.server.GestureLauncherService", param.classLoader, "handleCameraGesture", boolean.class, int.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        if (!mCameraGesture)
-                            param.setResult(false);
-                    }
-                });
             }
 
             int timeout = Integer.parseInt(pref.getString("trick_lessNotifications", "0"));
             if ((Build.VERSION.SDK_INT >= 29 && timeout != 0) || pref.getBoolean("trick_screenOffNotifications", false)) {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    //TODO
+                } else {
+                    findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            if ((boolean) param.getResult() == false) {
+                                Object mNotificationLock = getObjectField(param.thisObject, "mNotificationLock");
+                                synchronized (mNotificationLock) {
+                                    if (pref.getBoolean("trick_screenOffNotifications", false)) {
+                                        if (getBooleanField(param.thisObject, "mScreenOn"))
+                                            param.setResult(true);
+                                    }
+                                    if (Build.VERSION.SDK_INT >= 29 && timeout != 0) {
+                                        StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
+                                        Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
+                                        long currentTime = SystemClock.elapsedRealtime();
 
-                findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if ((boolean) param.getResult() == false) {
-                            Object mNotificationLock = getObjectField(param.thisObject, "mNotificationLock");
-                            synchronized (mNotificationLock) {
-                                if (pref.getBoolean("trick_screenOffNotifications", false)) {
-                                    if (getBooleanField(param.thisObject, "mScreenOn"))
-                                        param.setResult(true);
-                                }
-                                if (Build.VERSION.SDK_INT >= 29 && timeout != 0) {
-                                    StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
-                                    Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
-                                    long currentTime = SystemClock.elapsedRealtime();
-
-                                    if (lastTime == null || currentTime - lastTime > timeout) {
-                                        mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
-                                    } else {
-                                        param.setResult(true);
+                                        if (lastTime == null || currentTime - lastTime > timeout) {
+                                            mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
+                                        } else {
+                                            param.setResult(true);
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                });
-
+                    });
+                }
             }
 
         } else if (param.packageName.equals("com.google.android.apps.nexuslauncher") && Build.VERSION.SDK_INT < 29) {
@@ -1156,14 +1192,14 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
         } else if (param.packageName.equals("com.microsoft.office.outlook")) {
             if (pref.getBoolean("trick_OutlookPolicy", false)) {
-                findAndHookMethod("com.acompli.accore.util.OutlookDevicePolicy", param.classLoader, "requiresDeviceManagement", new XC_MethodHook() {
+                findAndHookMethod("com.microsoft.office.outlook.olmcore.managers.mdm.DevicePolicy", param.classLoader, "requiresDeviceManagement", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         param.setResult(false);
                     }
                 });
 
-                findAndHookMethod("com.acompli.accore.util.OutlookDevicePolicy", param.classLoader, "isPolicyApplied", new XC_MethodHook() {
+                findAndHookMethod("com.microsoft.office.outlook.olmcore.managers.mdm.DevicePolicy", param.classLoader, "isPolicyApplied", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         param.setResult(true);
