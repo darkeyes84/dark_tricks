@@ -506,7 +506,18 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             if (pref.getBoolean("trick_batteryEstimate", false) && Build.VERSION.SDK_INT >= 31) {
                 if (Build.VERSION.SDK_INT >= 33) {
-                    //TODO
+                    findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "onMeasure", int.class, int.class, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            Object mBattery = getObjectField(param.thisObject, "mBatteryRemainingIcon");
+                            float expansion = getFloatField(param.thisObject, "mKeyguardExpansionFraction");
+                            int mode = getIntField(mBattery, "mShowPercentMode");
+                            if ((expansion == 0f && mode != 1) || (expansion == 1f && mode != 3)) {
+                                callMethod(mBattery, "setPercentShowMode", expansion == 0f ? 1 : 3);
+                                callMethod(mBattery, "updatePercentText");
+                            }
+                        }
+                    });
                 } else {
                     findAndHookMethod("com.android.systemui.qs.QuickStatusBarHeader", param.classLoader, "updateBatteryMode", new XC_MethodHook() {
                         @Override
@@ -1126,36 +1137,32 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             int timeout = Integer.parseInt(pref.getString("trick_lessNotifications", "0"));
             if ((Build.VERSION.SDK_INT >= 29 && timeout != 0) || pref.getBoolean("trick_screenOffNotifications", false)) {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    //TODO
-                } else {
-                    findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            if ((boolean) param.getResult() == false) {
-                                Object mNotificationLock = getObjectField(param.thisObject, "mNotificationLock");
-                                synchronized (mNotificationLock) {
-                                    if (pref.getBoolean("trick_screenOffNotifications", false)) {
-                                        if (getBooleanField(param.thisObject, "mScreenOn"))
-                                            param.setResult(true);
-                                    }
-                                    if (Build.VERSION.SDK_INT >= 29 && timeout != 0) {
-                                        StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
-                                        Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
-                                        long currentTime = SystemClock.elapsedRealtime();
+                findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        if ((boolean) param.getResult() == false) {
+                            Object mNotificationLock = getObjectField(param.thisObject, "mNotificationLock");
+                            synchronized (mNotificationLock) {
+                                if (pref.getBoolean("trick_screenOffNotifications", false)) {
+                                    if (getBooleanField(param.thisObject, "mScreenOn"))
+                                        param.setResult(true);
+                                }
+                                if (Build.VERSION.SDK_INT >= 29 && timeout != 0) {
+                                    StatusBarNotification sbn = (StatusBarNotification) getObjectField(param.args[0], "sbn");
+                                    Long lastTime = mLastTimestamps.get(sbn.getPackageName() + "|" + sbn.getUid());
+                                    long currentTime = SystemClock.elapsedRealtime();
 
-                                        if (lastTime == null || currentTime - lastTime > timeout) {
-                                            mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
-                                        } else {
-                                            param.setResult(true);
-                                        }
+                                    if (lastTime == null || currentTime - lastTime > timeout) {
+                                        mLastTimestamps.put(sbn.getPackageName() + "|" + sbn.getUid(), currentTime);
+                                    } else {
+                                        param.setResult(true);
                                     }
                                 }
                             }
                         }
+                    }
 
-                    });
-                }
+                });
             }
 
         } else if (param.packageName.equals("com.google.android.apps.nexuslauncher") && Build.VERSION.SDK_INT < 29) {

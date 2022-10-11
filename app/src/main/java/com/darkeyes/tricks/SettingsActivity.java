@@ -52,7 +52,6 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         SwitchPreference smallClock = (SwitchPreference) findPreference("trick_smallClock");
         gestureHeight = (ListPreference) findPreference("trick_gestureHeight");
         SwitchPreference quickPulldown = (SwitchPreference) findPreference("trick_quickPulldown");
-        SwitchPreference screenOffNotifications = (SwitchPreference) findPreference("trick_screenOffNotifications");
 
         getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
         updateSummary();
@@ -82,13 +81,11 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
             prefScreen.removePreference(smallClock);
         }
         if (Build.VERSION.SDK_INT >= 33) {
-            prefScreen.removePreference(batteryEstimate);
             prefScreen.removePreference(doubleTapStatusBar);
             prefScreen.removePreference(doubleTapLockScreen);
             prefScreen.removePreference(gestureHeight);
             prefScreen.removePreference(quickUnlock);
             prefScreen.removePreference(quickPulldown);
-            prefScreen.removePreference(screenOffNotifications);
         }
         if (!torchAvailable()) {
             prefScreen.removePreference(powerTorch);
