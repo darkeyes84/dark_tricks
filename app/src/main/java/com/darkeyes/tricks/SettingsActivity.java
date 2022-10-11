@@ -51,7 +51,6 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         lessNotifications = (ListPreference) findPreference("trick_lessNotifications");
         SwitchPreference smallClock = (SwitchPreference) findPreference("trick_smallClock");
         gestureHeight = (ListPreference) findPreference("trick_gestureHeight");
-        SwitchPreference proximityWakeUp = (SwitchPreference) findPreference("trick_proximityWakeUp");
         SwitchPreference quickPulldown = (SwitchPreference) findPreference("trick_quickPulldown");
         SwitchPreference screenOffNotifications = (SwitchPreference) findPreference("trick_screenOffNotifications");
 
@@ -87,7 +86,6 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
             prefScreen.removePreference(doubleTapStatusBar);
             prefScreen.removePreference(doubleTapLockScreen);
             prefScreen.removePreference(gestureHeight);
-            prefScreen.removePreference(proximityWakeUp);
             prefScreen.removePreference(quickUnlock);
             prefScreen.removePreference(quickPulldown);
             prefScreen.removePreference(screenOffNotifications);

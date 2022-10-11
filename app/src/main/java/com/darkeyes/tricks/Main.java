@@ -103,6 +103,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private Object mLockCallback;
     private Object mKeyguardMonitor;
     private ClassLoader classLoader;
+    private Runnable mWakeUp;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -866,7 +867,23 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             if (pref.getBoolean("trick_proximityWakeUp", true)) {
                 if (Build.VERSION.SDK_INT >= 33) {
-                    //TODO
+                    findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            mWakeUpContext = (Context) getObjectField(param.thisObject, "mContext");
+                            mWakeUpHandler = (Handler) getObjectField(param.thisObject, "mHandler");
+                            if (mSensorManager == null)
+                                mSensorManager = (SensorManager) mWakeUpContext.getSystemService(Context.SENSOR_SERVICE);
+                            if (mProximitySensor == null)
+                                mProximitySensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+                            if (mPowerManager == null)
+                                mPowerManager = (PowerManager) mWakeUpContext.getSystemService(Context.POWER_SERVICE);
+                            if (mTelephonyManager == null)
+                                mTelephonyManager = (TelephonyManager) mWakeUpContext.getSystemService(Context.TELEPHONY_SERVICE);
+                            if (mWakeUpWakeLock == null)
+                                mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
+                        }
+                    });
                 } else {
                     findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", "com.android.internal.app.IAppOpsService", new XC_MethodHook() {
                         @Override
@@ -885,172 +902,226 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 mWakeUpWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUpWakelock");
                         }
                     });
+                }
 
-                    if (Build.VERSION.SDK_INT <= 30) {
-                        findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeUpInternal", long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
-                            @Override
-                            protected void beforeHookedMethod(MethodHookParam param) {
-
-                                Runnable mWakeUp = () -> {
-                                    long ident = Binder.clearCallingIdentity();
-                                    try {
-                                        invokeOriginalMethod(param.method, param.thisObject, param.args);
-                                    } catch (Throwable t) {
-                                    } finally {
-                                        Binder.restoreCallingIdentity(ident);
-                                    }
-                                };
-
-                                if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
-                                    if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                        param.setResult(null);
-                                        return;
-                                    }
-                                    Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
-                                    msg.obj = mWakeUp;
-                                    mWakeUpHandler.sendMessageDelayed(msg, 100);
-
-                                    synchronized (mWakeUpWakeLock) {
-                                        mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
-                                        mWakeUpListener = new SensorEventListener() {
-                                            @Override
-                                            public void onSensorChanged(SensorEvent event) {
-                                                if (mWakeUpWakeLock.isHeld())
-                                                    mWakeUpWakeLock.release();
-                                                if (mWakeUpListener != null) {
-                                                    mSensorManager.unregisterListener(mWakeUpListener);
-                                                    mWakeUpListener = null;
-                                                }
-                                                if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                                    param.setResult(null);
-                                                    return;
-                                                }
-                                                mWakeUpHandler.removeMessages(MSG_WAKE_UP);
-                                                if (event.values[0] >= mProximitySensor.getMaximumRange()) {
-                                                    mCameraGesture = true;
-                                                    mWakeUp.run();
-                                                } else
-                                                    mCameraGesture = false;
-                                            }
-
-                                            @Override
-                                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                            }
-                                        };
-                                    }
-                                    mSensorManager.registerListener(mWakeUpListener,
-                                            mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
-                                    param.setResult(null);
-                                }
-                            }
-                        });
-                    } else {
-                        findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeDisplayGroup", int.class, long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
-                            @Override
-                            protected void beforeHookedMethod(MethodHookParam param) {
-
-                                Runnable mWakeUp = () -> {
-                                    long ident = Binder.clearCallingIdentity();
-                                    try {
-                                        invokeOriginalMethod(param.method, param.thisObject, param.args);
-                                    } catch (Throwable ignored) {
-                                    } finally {
-                                        Binder.restoreCallingIdentity(ident);
-                                    }
-                                };
-
-                                if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
-                                    if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                        param.setResult(null);
-                                        return;
-                                    }
-                                    Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
-                                    msg.obj = mWakeUp;
-                                    mWakeUpHandler.sendMessageDelayed(msg, 100);
-
-                                    synchronized (mWakeUpWakeLock) {
-                                        mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
-                                        mWakeUpListener = new SensorEventListener() {
-                                            @Override
-                                            public void onSensorChanged(SensorEvent event) {
-                                                if (mWakeUpWakeLock.isHeld())
-                                                    mWakeUpWakeLock.release();
-                                                if (mWakeUpListener != null) {
-                                                    mSensorManager.unregisterListener(mWakeUpListener);
-                                                    mWakeUpListener = null;
-                                                }
-                                                if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
-                                                    param.setResult(null);
-                                                    return;
-                                                }
-                                                mWakeUpHandler.removeMessages(MSG_WAKE_UP);
-                                                if (event.values[0] >= mProximitySensor.getMaximumRange()) {
-                                                    mCameraGesture = true;
-                                                    mWakeUp.run();
-                                                } else
-                                                    mCameraGesture = false;
-                                            }
-
-                                            @Override
-                                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                            }
-                                        };
-                                    }
-                                    mSensorManager.registerListener(mWakeUpListener,
-                                            mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
-                                    param.setResult(null);
-                                }
-                            }
-                        });
-                    }
-
-                    String CLASS = Build.VERSION.SDK_INT >= 30 ? "com.android.server.power.PowerManagerService$PowerManagerHandlerCallback" : "com.android.server.power.PowerManagerService$PowerManagerHandler";
-                    findAndHookMethod(CLASS, param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+                if (Build.VERSION.SDK_INT <= 30) {
+                    findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeUpInternal", long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
-                            Message msg = (Message) param.args[0];
 
-                            if (msg.what == MSG_WAKE_UP) {
-                                synchronized (mWakeUpWakeLock) {
-                                    if (mWakeUpWakeLock.isHeld())
-                                        mWakeUpWakeLock.release();
-                                    if (mWakeUpListener != null) {
-                                        mSensorManager.unregisterListener(mWakeUpListener);
-                                        mWakeUpListener = null;
-                                    }
+                            mWakeUp = () -> {
+                                long ident = Binder.clearCallingIdentity();
+                                try {
+                                    invokeOriginalMethod(param.method, param.thisObject, param.args);
+                                } catch (Throwable t) {
+                                } finally {
+                                    Binder.restoreCallingIdentity(ident);
                                 }
-                                mCameraGesture = true;
-                                ((Runnable) msg.obj).run();
+                            };
+
+                            if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
+                                if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                    param.setResult(null);
+                                    return;
+                                }
+                                Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                                mWakeUpHandler.sendMessageDelayed(msg, 100);
+
+                                synchronized (mWakeUpWakeLock) {
+                                    mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
+                                    mWakeUpListener = new SensorEventListener() {
+                                        @Override
+                                        public void onSensorChanged(SensorEvent event) {
+                                            if (mWakeUpWakeLock.isHeld())
+                                                mWakeUpWakeLock.release();
+                                            if (mWakeUpListener != null) {
+                                                mSensorManager.unregisterListener(mWakeUpListener);
+                                                mWakeUpListener = null;
+                                            }
+                                            if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                                param.setResult(null);
+                                                return;
+                                            }
+                                            mWakeUpHandler.removeMessages(MSG_WAKE_UP);
+                                            if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                mCameraGesture = true;
+                                                mWakeUp.run();
+                                            } else
+                                                mCameraGesture = false;
+                                        }
+
+                                        @Override
+                                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                        }
+                                    };
+                                }
+                                mSensorManager.registerListener(mWakeUpListener,
+                                        mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                param.setResult(null);
                             }
                         }
                     });
-
-                    if (Build.VERSION.SDK_INT <= 30) {
-                        findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", new XC_MethodHook() {
-                            @Override
-                            protected void beforeHookedMethod(MethodHookParam param) {
-                                if (!mPowerManager.isInteractive())
-                                    param.setResult(null);
-                            }
-                        });
-                    } else {
-                        findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", long.class, new XC_MethodHook() {
-                            @Override
-                            protected void beforeHookedMethod(MethodHookParam param) {
-                                if (!mPowerManager.isInteractive())
-                                    param.setResult(null);
-                            }
-                        });
-                    }
-
-                    findAndHookMethod("com.android.server.GestureLauncherService", param.classLoader, "handleCameraGesture", boolean.class, int.class, new XC_MethodHook() {
+                } else if (Build.VERSION.SDK_INT <= 32) {
+                    findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "wakeDisplayGroup", int.class, long.class, int.class, String.class, int.class, String.class, int.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
-                            if (!mCameraGesture)
-                                param.setResult(false);
+
+                            mWakeUp = () -> {
+                                long ident = Binder.clearCallingIdentity();
+                                try {
+                                    invokeOriginalMethod(param.method, param.thisObject, param.args);
+                                } catch (Throwable ignored) {
+                                } finally {
+                                    Binder.restoreCallingIdentity(ident);
+                                }
+                            };
+
+                            if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[2].equals("android.policy:BIOMETRIC")) {
+                                if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                    param.setResult(null);
+                                    return;
+                                }
+                                Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                                mWakeUpHandler.sendMessageDelayed(msg, 100);
+
+                                synchronized (mWakeUpWakeLock) {
+                                    mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
+                                    mWakeUpListener = new SensorEventListener() {
+                                        @Override
+                                        public void onSensorChanged(SensorEvent event) {
+                                            if (mWakeUpWakeLock.isHeld())
+                                                mWakeUpWakeLock.release();
+                                            if (mWakeUpListener != null) {
+                                                mSensorManager.unregisterListener(mWakeUpListener);
+                                                mWakeUpListener = null;
+                                            }
+                                            if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                                param.setResult(null);
+                                                return;
+                                            }
+                                            mWakeUpHandler.removeMessages(MSG_WAKE_UP);
+                                            if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                mCameraGesture = true;
+                                                mWakeUp.run();
+                                            } else
+                                                mCameraGesture = false;
+                                        }
+
+                                        @Override
+                                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                        }
+                                    };
+                                }
+                                mSensorManager.registerListener(mWakeUpListener,
+                                        mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                param.setResult(null);
+                            }
+                        }
+                    });
+                } else {
+                    findAndHookMethod("com.android.server.power.PowerGroup", param.classLoader, "wakeUpLocked", long.class, int.class, String.class, int.class, String.class, int.class, "com.android.internal.util.LatencyTracker", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            mWakeUp = () -> {
+                                long ident = Binder.clearCallingIdentity();
+                                try {
+                                    invokeOriginalMethod(param.method, param.thisObject, param.args);
+                                } catch (Throwable ignored) {
+                                } finally {
+                                    Binder.restoreCallingIdentity(ident);
+                                }
+                            };
+
+                            if (mTelephonyManager.getCallState() != TelephonyManager.CALL_STATE_RINGING && !param.args[1].equals("android.policy:BIOMETRIC")) {
+                                if (mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                    param.setResult(null);
+                                    return;
+                                }
+                                Message msg = mWakeUpHandler.obtainMessage(MSG_WAKE_UP);
+                                mWakeUpHandler.sendMessageDelayed(msg, 100);
+
+                                synchronized (mWakeUpWakeLock) {
+                                    mWakeUpWakeLock.acquire(5000L /*5 seconds*/);
+                                    mWakeUpListener = new SensorEventListener() {
+                                        @Override
+                                        public void onSensorChanged(SensorEvent event) {
+                                            if (mWakeUpWakeLock.isHeld())
+                                                mWakeUpWakeLock.release();
+                                            if (mWakeUpListener != null) {
+                                                mSensorManager.unregisterListener(mWakeUpListener);
+                                                mWakeUpListener = null;
+                                            }
+                                            if (!mWakeUpHandler.hasMessages(MSG_WAKE_UP)) {
+                                                param.setResult(null);
+                                                return;
+                                            }
+                                            mWakeUpHandler.removeMessages(MSG_WAKE_UP);
+                                            if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                mCameraGesture = true;
+                                                mWakeUp.run();
+                                            } else
+                                                mCameraGesture = false;
+                                        }
+
+                                        @Override
+                                        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                        }
+                                    };
+                                }
+                                mSensorManager.registerListener(mWakeUpListener,
+                                        mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                param.setResult(null);
+                            }
                         }
                     });
                 }
+
+                String CLASS = Build.VERSION.SDK_INT >= 30 ? "com.android.server.power.PowerManagerService$PowerManagerHandlerCallback" : "com.android.server.power.PowerManagerService$PowerManagerHandler";
+                findAndHookMethod(CLASS, param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        Message msg = (Message) param.args[0];
+
+                        if (msg.what == MSG_WAKE_UP) {
+                            synchronized (mWakeUpWakeLock) {
+                                if (mWakeUpWakeLock.isHeld())
+                                    mWakeUpWakeLock.release();
+                                if (mWakeUpListener != null) {
+                                    mSensorManager.unregisterListener(mWakeUpListener);
+                                    mWakeUpListener = null;
+                                }
+                            }
+                            mCameraGesture = true;
+                            mWakeUp.run();
+                        }
+                    }
+                });
+
+                if (Build.VERSION.SDK_INT <= 30) {
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if (!mPowerManager.isInteractive())
+                                param.setResult(null);
+                        }
+                    });
+                } else {
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", long.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if (!mPowerManager.isInteractive())
+                                param.setResult(null);
+                        }
+                    });
+                }
+
+                findAndHookMethod("com.android.server.GestureLauncherService", param.classLoader, "handleCameraGesture", boolean.class, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if (!mCameraGesture)
+                            param.setResult(false);
+                    }
+                });
             }
 
             int timeout = Integer.parseInt(pref.getString("trick_lessNotifications", "0"));
