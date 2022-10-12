@@ -83,7 +83,6 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         if (Build.VERSION.SDK_INT >= 33) {
             prefScreen.removePreference(doubleTapStatusBar);
             prefScreen.removePreference(doubleTapLockScreen);
-            prefScreen.removePreference(gestureHeight);
             prefScreen.removePreference(quickUnlock);
             prefScreen.removePreference(quickPulldown);
         }

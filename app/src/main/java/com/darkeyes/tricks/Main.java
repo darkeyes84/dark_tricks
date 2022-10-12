@@ -104,6 +104,9 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private Object mKeyguardMonitor;
     private ClassLoader classLoader;
     private Runnable mWakeUp;
+    private Point mDisplaySize;
+    private float mBottom;
+    private Object mEdgeObject;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -553,7 +556,33 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             int gestureHeight = Integer.parseInt(pref.getString("trick_gestureHeight", "0"));
             if (gestureHeight != 0) {
                 if (Build.VERSION.SDK_INT >= 33) {
-                    //TODO
+                    findAndHookMethod("com.android.systemui.navigationbar.gestural.EdgeBackGestureHandler", param.classLoader, "updateDisplaySize", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            mEdgeObject = param.thisObject;
+                            mDisplaySize = (Point) getObjectField(param.thisObject, "mDisplaySize");
+                        }
+                    });
+                    findAndHookMethod("com.android.systemui.navigationbar.gestural.EdgeBackGestureHandler", param.classLoader, "updateCurrentUserResources", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            mBottom = getFloatField(param.thisObject, "mBottomGestureHeight");
+                        }
+                    });
+                    findAndHookMethod("com.android.systemui.navigationbar.gestural.NavigationBarEdgePanel", param.classLoader, "onMotionEvent", MotionEvent.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            MotionEvent ev = (MotionEvent) param.args[0];
+                            int height;
+                            if (gestureHeight == 1)
+                                height = (2 * mDisplaySize.y) / 3;
+                            else
+                                height = mDisplaySize.y / 3;
+
+                            if ((int) ev.getY() < (mDisplaySize.y - mBottom - height) && ev.getActionMasked() == MotionEvent.ACTION_DOWN)
+                                callMethod(mEdgeObject, "cancelGesture", ev);
+                        }
+                    });
                 } else {
                     findAndHookMethod("com.android.systemui.navigationbar.gestural.EdgeBackGestureHandler", param.classLoader, "isWithinInsets", int.class, int.class, new XC_MethodHook() {
                         @Override
