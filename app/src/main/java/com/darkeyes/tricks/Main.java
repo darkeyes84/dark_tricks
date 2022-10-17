@@ -345,15 +345,15 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 });
             }
 
-            if ((pref.getBoolean("trick_doubleTapStatusBar", false) || (pref.getBoolean("trick_doubleTapLockScreen", false)))
-                    && Build.VERSION.SDK_INT >= 31) {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    //TODO
-                } else {
-                    findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            mNotificationPanelViewController = param.thisObject;
+            if ((pref.getBoolean("trick_doubleTapStatusBar", false) || (pref.getBoolean("trick_doubleTapLockScreen", false))
+                    || pref.getBoolean("trick_quickPulldown", true)) && Build.VERSION.SDK_INT >= 31) {
+
+                findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        mNotificationPanelViewController = param.thisObject;
+
+                        if (pref.getBoolean("trick_doubleTapStatusBar", false) || pref.getBoolean("trick_doubleTapLockScreen", false)) {
                             mStatusBarHeight = getIntField(param.thisObject, "mStatusBarMinHeight");
                             mStatusBarHeaderHeight = getIntField(param.thisObject, "mStatusBarHeaderHeightKeyguard");
                             View view = (View) getObjectField(param.thisObject, "mView");
@@ -370,8 +370,61 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                         });
                             }
                         }
-                    });
+                    }
+                });
 
+                if (pref.getBoolean("trick_quickPulldown", true)) {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
+                            @Override
+                            protected void afterHookedMethod(MethodHookParam param) {
+                                if (mNotificationPanelViewController == null)
+                                    mNotificationPanelViewController = param.thisObject;
+                            }
+                        });
+                        findAndHookMethod("com.android.systemui.statusbar.phone.HeadsUpTouchHelper", param.classLoader, "onTouchEvent", MotionEvent.class, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) {
+                                MotionEvent event = (MotionEvent) param.args[0];
+                                if (getBooleanField(mNotificationPanelViewController, "mSplitShadeEnabled") &&
+                                        (boolean) callMethod(mNotificationPanelViewController, "touchXOutsideOfQs", event.getX()))
+                                    return;
+                                ViewGroup view = (ViewGroup) getObjectField(mNotificationPanelViewController, "mView");
+                                int state = (int) getObjectField(mNotificationPanelViewController, "mBarState");
+                                int height = getIntField(mNotificationPanelViewController, "mStatusBarMinHeight");
+                                boolean tracking = getBooleanField(param.thisObject, "mTrackingHeadsUp");
+
+                                float w = view.getMeasuredWidth();
+                                float x = event.getX();
+                                float y = event.getY(event.getActionIndex());
+
+                                if (x > 3.f * w / 4.f && state == 0 && !tracking && y < height) {
+                                    setBooleanField(mNotificationPanelViewController, "mQsExpandImmediate", true);
+                                    callMethod(mNotificationPanelViewController, "setShowShelfOnly", true);
+                                    callMethod(mNotificationPanelViewController, "requestPanelHeightUpdate");
+                                    callMethod(mNotificationPanelViewController, "setListening", true);
+                                }
+                            }
+                        });
+                    } else {
+                        findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "isOpenQsEvent", MotionEvent.class, new XC_MethodHook() {
+                            @Override
+                            protected void afterHookedMethod(MethodHookParam param) {
+                                if ((boolean) param.getResult() == false) {
+                                    MotionEvent event = (MotionEvent) param.args[0];
+                                    ViewGroup view = (ViewGroup) getObjectField(param.thisObject, "mView");
+                                    int state = (int) getObjectField(param.thisObject, "mBarState");
+                                    float w = view.getMeasuredWidth();
+                                    float x = event.getX();
+
+                                    param.setResult(x > 3.f * w / 4.f && state == 0);
+                                }
+                            }
+                        });
+                    }
+                }
+
+                if (pref.getBoolean("trick_doubleTapStatusBar", false) || pref.getBoolean("trick_doubleTapLockScreen", false)) {
                     findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController$TouchHandler", param.classLoader, "onTouch", View.class, MotionEvent.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
@@ -411,7 +464,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         });
                     }
 
-                    if (pref.getBoolean("trick_doubleTapStatusBar", false)) {
+                    if (pref.getBoolean("trick_doubleTapStatusBar", false) && Build.VERSION.SDK_INT < 33) {
                         findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController", param.classLoader, "startOpening", MotionEvent.class, new XC_MethodHook() {
                             @Override
                             protected void beforeHookedMethod(MethodHookParam param) {
@@ -597,27 +650,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                             if ((int) param.args[1] < (displaySize.y - bottom - height))
                                 param.setResult(false);
-                        }
-                    });
-                }
-            }
-
-            if (pref.getBoolean("trick_quickPulldown", true) && Build.VERSION.SDK_INT >= 31) {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    //TODO
-                } else {
-                    findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "isOpenQsEvent", MotionEvent.class, new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            if ((boolean) param.getResult() == false) {
-                                MotionEvent event = (MotionEvent) param.args[0];
-                                ViewGroup view = (ViewGroup) getObjectField(param.thisObject, "mView");
-                                int state = (int) getObjectField(param.thisObject, "mBarState");
-                                float w = view.getMeasuredWidth();
-                                float x = event.getX();
-
-                                param.setResult(x > 3.f * w / 4.f && state == 0);
-                            }
                         }
                     });
                 }
