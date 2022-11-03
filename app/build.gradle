@@ -18,8 +18,8 @@ android {
         applicationId "com.darkeyes.tricks"
         minSdkVersion 26
         targetSdk 33
-        versionCode 32
-        versionName '2.25'
+        versionCode 33
+        versionName '2.26'
         signingConfig signingConfigs.release
     }
     buildTypes {
@@ -41,5 +41,5 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     compileOnly 'de.robv.android.xposed:api:82'
-    implementation 'com.google.android.material:material:1.8.0-alpha01'
+    implementation 'com.google.android.material:material:1.8.0-alpha02'
 }

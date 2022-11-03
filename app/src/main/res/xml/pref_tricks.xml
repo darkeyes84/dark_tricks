@@ -27,6 +27,12 @@
         android:defaultValue="false" />
 
     <SwitchPreference
+        android:key="trick_trick_expandedNotifications"
+        android:title="@string/expandedNotifications_title"
+        android:summary="@string/expandedNotifications_summary"
+        android:defaultValue="false" />
+
+    <SwitchPreference
         android:key="trick_hideNextAlarm"
         android:title="@string/hideNextAlarm_title"
         android:summary="@string/hideNextAlarm_summary"

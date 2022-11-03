@@ -17,9 +17,11 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.inputmethodservice.InputMethodService;
 import android.media.AudioManager;
+import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.SystemClock;
@@ -107,6 +109,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private Point mDisplaySize;
     private float mBottom;
     private Object mEdgeObject;
+    private String mOldEntry;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -496,42 +499,121 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 });
 
-                findAndHookMethod("com.android.keyguard.KeyguardPasswordView", param.classLoader, "onFinishInflate", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        TextView passwordEntry = (TextView) getObjectField(param.thisObject, "mPasswordEntry");
-                        passwordEntry.addTextChangedListener(new TextWatcher() {
-                            @Override
-                            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                            }
+                if (Build.VERSION.SDK_INT >= 33) {
+                    findAndHookMethod("com.android.keyguard.KeyguardPasswordView", param.classLoader, "onFinishInflate", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            TextView passwordEntry = (TextView) getObjectField(param.thisObject, "mPasswordEntry");
+                            passwordEntry.addTextChangedListener(new TextWatcher() {
+                                @Override
+                                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                                }
 
-                            @Override
-                            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                            }
+                                @Override
+                                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                                }
 
-                            @Override
-                            public void afterTextChanged(Editable s) {
-                                String entry = passwordEntry.getText().toString();
-                                int passwordLength = pref.getInt("passwordLength", -1);
-                                if (entry.length() == passwordLength) {
-                                    int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
-                                    Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
-                                    Object password = callStaticMethod(credential, "createPassword", entry);
-                                    boolean valid = (boolean) callMethod(mLockPatterUtils,
-                                            "checkCredential", password, userId, (Object) null);
-                                    if (valid) {
-                                        callMethod(mLockCallback, "reportUnlockAttempt", userId, true, 0);
-                                        callMethod(mLockCallback, "dismiss", true, userId);
+                                @Override
+                                public void afterTextChanged(Editable s) {
+                                    String entry = passwordEntry.getText().toString();
+                                    int passwordLength = pref.getInt("passwordLength", -1);
+                                    if (entry.length() == passwordLength) {
+                                        int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
+                                        Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
+                                        AsyncTask.execute(() -> {
+                                            try {
+                                                Object password = callStaticMethod(credential, "createPassword", entry);
+                                                boolean valid = (boolean) callMethod(mLockPatterUtils,
+                                                        "checkCredential", password, userId, (Object) null);
+                                                if (valid) {
+                                                    new Handler(Looper.getMainLooper()).post(() -> {
+                                                        try {
+                                                            callMethod(mLockCallback, "reportUnlockAttempt", userId, 0, true);
+                                                            callMethod(mLockCallback, "dismiss", userId);
+                                                        } catch (Throwable ignored) {
+                                                        }
+                                                    });
+                                                }
+                                            } catch (Throwable ignored) {
+                                            }
+                                        });
                                     }
                                 }
+                            });
+                        }
+                    });
+                    findAndHookMethod("com.android.keyguard.PasswordTextView", param.classLoader, "getTransformedText", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            String entry = (String) getObjectField(param.thisObject, "mText");
+                            int passwordLength = pref.getInt("passwordLength", -1);
+                            if (entry.length() == passwordLength && !entry.equals(mOldEntry)) {
+                                mOldEntry = entry;
+                                int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
+                                Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
+                                AsyncTask.execute(() -> {
+                                    try {
+                                        Object pin = callStaticMethod(credential, "createPin", entry);
+                                        boolean valid = (boolean) callMethod(mLockPatterUtils,
+                                                "checkCredential", pin, userId, (Object) null);
+                                        if (valid) {
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                try {
+                                                    callMethod(mLockCallback, "reportUnlockAttempt", userId, 0, true);
+                                                    callMethod(mLockCallback, "dismiss", userId);
+                                                } catch (Throwable ignored) {
+                                                }
+                                            });
+                                        }
+                                    } catch (Throwable ignored) {
+                                    }
+                                });
                             }
-                        });
-                    }
-                });
-
-                if (Build.VERSION.SDK_INT >= 33) {
-                    //TODO
+                        }
+                    });
                 } else {
+                    findAndHookMethod("com.android.keyguard.KeyguardPasswordView", param.classLoader, "onFinishInflate", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            TextView passwordEntry = (TextView) getObjectField(param.thisObject, "mPasswordEntry");
+                            passwordEntry.addTextChangedListener(new TextWatcher() {
+                                @Override
+                                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                                }
+
+                                @Override
+                                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                                }
+
+                                @Override
+                                public void afterTextChanged(Editable s) {
+                                    String entry = passwordEntry.getText().toString();
+                                    int passwordLength = pref.getInt("passwordLength", -1);
+                                    if (entry.length() == passwordLength) {
+                                        int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
+                                        Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
+                                        AsyncTask.execute(() -> {
+                                            try {
+                                                Object password = callStaticMethod(credential, "createPassword", entry);
+                                                boolean valid = (boolean) callMethod(mLockPatterUtils,
+                                                        "checkCredential", password, userId, (Object) null);
+                                                if (valid) {
+                                                    new Handler(Looper.getMainLooper()).post(() -> {
+                                                        try {
+                                                            callMethod(mLockCallback, "reportUnlockAttempt", userId, true, 0);
+                                                            callMethod(mLockCallback, "dismiss", true, userId);
+                                                        } catch (Throwable ignored) {
+                                                        }
+                                                    });
+                                                }
+                                            } catch (Throwable ignored) {
+                                            }
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    });
                     findAndHookMethod("com.android.keyguard.PasswordTextView", param.classLoader, "append", char.class, new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
@@ -540,24 +622,27 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             if (entry.length() == passwordLength) {
                                 int userId = (int) callMethod(mKeyguardMonitor, "getCurrentUser");
                                 Class<?> credential = findClass("com.android.internal.widget.LockscreenCredential", classLoader);
-                                Object pin = callStaticMethod(credential, "createPin", entry);
-                                boolean valid = (boolean) callMethod(mLockPatterUtils,
-                                        "checkCredential", pin, userId, (Object) null);
-                                if (valid) {
-                                    callMethod(mLockCallback, "reportUnlockAttempt", userId, true, 0);
-                                    callMethod(mLockCallback, "dismiss", true, userId);
-                                }
+                                AsyncTask.execute(() -> {
+                                    try {
+                                        Object pin = callStaticMethod(credential, "createPin", entry);
+                                        boolean valid = (boolean) callMethod(mLockPatterUtils,
+                                                "checkCredential", pin, userId, (Object) null);
+                                        if (valid) {
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                try {
+                                                    callMethod(mLockCallback, "reportUnlockAttempt", userId, true, 0);
+                                                    callMethod(mLockCallback, "dismiss", true, userId);
+                                                } catch (Throwable ignored) {
+                                                }
+                                            });
+                                        }
+                                    } catch (Throwable ignored) {
+                                    }
+                                });
                             }
                         }
                     });
                 }
-
-                findAndHookMethod("com.android.internal.widget.LockPatternUtils", param.classLoader, "throwIfCalledOnMainThread", new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        param.setResult(null);
-                    }
-                });
             }
 
             if (pref.getBoolean("trick_batteryEstimate", false) && Build.VERSION.SDK_INT >= 31) {
@@ -653,6 +738,15 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
                     });
                 }
+            }
+
+            if (pref.getBoolean("trick_expandedNotifications", false) && Build.VERSION.SDK_INT >= 31) {
+                findAndHookMethod("com.android.systemui.statusbar.notification.row.ExpandableNotificationRow", param.classLoader, "setSystemExpanded", boolean.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        param.args[0] = true;
+                    }
+                });
             }
 
         } else if (param.packageName.equals("android")) {

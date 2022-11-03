@@ -58,4 +58,6 @@
     <string name="gestureHeight_one_third">1/3 of screen</string>
     <string name="quickPulldown_title">Quick pulldown</string>
     <string name="quickPulldown_summary">Right edge of status bar fully expands the quick settings</string>
+    <string name="expandedNotifications_title">Expanded notifications</string>
+    <string name="expandedNotifications_summary">All notifications are expanded by default</string>
 </resources>
