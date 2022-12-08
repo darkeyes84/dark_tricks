@@ -42,6 +42,9 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import java.io.File;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
@@ -110,6 +113,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private float mBottom;
     private Object mEdgeObject;
     private String mOldEntry;
+    private Date securityPatch;
+    private Date december;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -165,6 +170,12 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     }
 
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam param) {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+        try {
+            securityPatch = format.parse(Build.VERSION.SECURITY_PATCH);
+            december = format.parse("2022-12-01");
+        } catch (ParseException ignored) {
+        }
 
         if (param.packageName.equals("com.android.systemui")) {
             classLoader = param.classLoader;
@@ -358,7 +369,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             if ((pref.getBoolean("trick_doubleTapStatusBar", false) || (pref.getBoolean("trick_doubleTapLockScreen", false))
                     || pref.getBoolean("trick_quickPulldown", true)) && Build.VERSION.SDK_INT >= 31) {
 
-                String notificationPanelViewController = Build.VERSION.SDK_INT >= 33 ? "com.android.systemui.shade.NotificationPanelViewController" : "com.android.systemui.statusbar.phone.NotificationPanelViewController";
+                String notificationPanelViewController = securityPatch.after(december) ? "com.android.systemui.shade.NotificationPanelViewController" : "com.android.systemui.statusbar.phone.NotificationPanelViewController";
                 findAndHookMethod(notificationPanelViewController, param.classLoader, "onFinishInflate", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
@@ -405,7 +416,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 if (x > 3.f * w / 4.f && state == 0 && !tracking && y < height) {
                                     setBooleanField(mNotificationPanelViewController, "mQsExpandImmediate", true);
                                     callMethod(mNotificationPanelViewController, "setShowShelfOnly", true);
-                                    String update = Build.VERSION.SDK_INT >= 33 ? "updateExpandedHeightToMaxHeight" : "requestPanelHeightUpdate";
+                                    String update = securityPatch.after(december) ? "updateExpandedHeightToMaxHeight" : "requestPanelHeightUpdate";
                                     callMethod(mNotificationPanelViewController, update);
                                     callMethod(mNotificationPanelViewController, "setListening", true);
                                 }
@@ -430,11 +441,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
 
                 if (pref.getBoolean("trick_doubleTapStatusBar", false) || pref.getBoolean("trick_doubleTapLockScreen", false)) {
-                    String touchHandler = Build.VERSION.SDK_INT >= 33 ? "com.android.systemui.shade.PanelViewController$TouchHandler" : "com.android.systemui.statusbar.phone.PanelViewController$TouchHandler";
+                    String touchHandler = securityPatch.after(december) ? "com.android.systemui.shade.PanelViewController$TouchHandler" : "com.android.systemui.statusbar.phone.PanelViewController$TouchHandler";
                     findAndHookMethod(touchHandler, param.classLoader, "onTouch", View.class, MotionEvent.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
-                            String notificationPanelView = Build.VERSION.SDK_INT >= 33 ? "com.android.systemui.shade.NotificationPanelView" : "com.android.systemui.statusbar.phone.NotificationPanelView";
+                            String notificationPanelView = securityPatch.after(december) ? "com.android.systemui.shade.NotificationPanelView" : "com.android.systemui.statusbar.phone.NotificationPanelView";
                             if (param.args[0].getClass().getName().equals(notificationPanelView)
                                     && mNotificationPanelViewController != null && mDoubleTapGesture != null) {
                                 MotionEvent event = (MotionEvent) param.args[1];
@@ -825,7 +836,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             if (pref.getBoolean("trick_skipTrack", true) || pref.getBoolean("trick_powerTorch", false)) {
                 if (Build.VERSION.SDK_INT >= 33) {
-                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "initKeyCombinationRules", new XC_MethodHook() {
+                    String init = securityPatch.after(december) ? "initKeyCombinationRules" : "init";
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, init, new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
                             if (pref.getBoolean("trick_skipTrack", true)) {
