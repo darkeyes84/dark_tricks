@@ -329,6 +329,13 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             mCarrierText.setText(carrierText.trim().isEmpty() ? "" : carrierText);
                         }
                     });
+
+                    findAndHookMethod("com.android.keyguard.CarrierTextController$1" , param.classLoader, "updateCarrierInfo", "com.android.keyguard.CarrierTextManager.CarrierTextCallbackInfo", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            setObjectField(param.args[0], "carrierText", carrierText.trim().isEmpty() ? "" : carrierText);
+                        }
+                    });
                 } else {
                     String CARRIER = Build.VERSION.SDK_INT >= 30 ? "com.android.systemui.qs.carrier.QSCarrier" : "com.android.systemui.qs.QSCarrier";
                     findAndHookMethod(CARRIER, param.classLoader, "setCarrierText", CharSequence.class, new XC_MethodHook() {
@@ -337,21 +344,22 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                             param.args[0] = carrierText.trim().isEmpty() ? "" : carrierText;
                         }
                     });
-                }
 
-                String CARRIERTEXT = Build.VERSION.SDK_INT <= 30 ? "com.android.keyguard.CarrierTextController" : "com.android.keyguard.CarrierTextManager";
-                findAndHookMethod(CARRIERTEXT, param.classLoader, "postToCallback", CARRIERTEXT + ".CarrierTextCallbackInfo", new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        setObjectField(param.args[0], "carrierText", carrierText.trim().isEmpty() ? "" : carrierText);
-                    }
-                });
+                    String CARRIERTEXT = Build.VERSION.SDK_INT <= 30 ? "com.android.keyguard.CarrierTextController" : "com.android.keyguard.CarrierTextManager";
+                    findAndHookMethod(CARRIERTEXT, param.classLoader, "postToCallback", CARRIERTEXT + ".CarrierTextCallbackInfo", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            setObjectField(param.args[0], "carrierText", carrierText.trim().isEmpty() ? "" : carrierText);
+                        }
+                    });
+                }
             }
 
             if ((pref.getBoolean("trick_doubleTapStatusBar", false) || (pref.getBoolean("trick_doubleTapLockScreen", false))
                     || pref.getBoolean("trick_quickPulldown", true)) && Build.VERSION.SDK_INT >= 31) {
 
-                findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
+                String notificationPanelViewController = Build.VERSION.SDK_INT >= 33 ? "com.android.systemui.shade.NotificationPanelViewController" : "com.android.systemui.statusbar.phone.NotificationPanelViewController";
+                findAndHookMethod(notificationPanelViewController, param.classLoader, "onFinishInflate", new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         mNotificationPanelViewController = param.thisObject;
@@ -378,13 +386,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
                 if (pref.getBoolean("trick_quickPulldown", true)) {
                     if (Build.VERSION.SDK_INT >= 33) {
-                        findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "onFinishInflate", new XC_MethodHook() {
-                            @Override
-                            protected void afterHookedMethod(MethodHookParam param) {
-                                if (mNotificationPanelViewController == null)
-                                    mNotificationPanelViewController = param.thisObject;
-                            }
-                        });
                         findAndHookMethod("com.android.systemui.statusbar.phone.HeadsUpTouchHelper", param.classLoader, "onTouchEvent", MotionEvent.class, new XC_MethodHook() {
                             @Override
                             protected void beforeHookedMethod(MethodHookParam param) {
@@ -404,7 +405,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 if (x > 3.f * w / 4.f && state == 0 && !tracking && y < height) {
                                     setBooleanField(mNotificationPanelViewController, "mQsExpandImmediate", true);
                                     callMethod(mNotificationPanelViewController, "setShowShelfOnly", true);
-                                    callMethod(mNotificationPanelViewController, "requestPanelHeightUpdate");
+                                    String update = Build.VERSION.SDK_INT >= 33 ? "updateExpandedHeightToMaxHeight" : "requestPanelHeightUpdate";
+                                    callMethod(mNotificationPanelViewController, update);
                                     callMethod(mNotificationPanelViewController, "setListening", true);
                                 }
                             }
@@ -428,10 +430,12 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
 
                 if (pref.getBoolean("trick_doubleTapStatusBar", false) || pref.getBoolean("trick_doubleTapLockScreen", false)) {
-                    findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController$TouchHandler", param.classLoader, "onTouch", View.class, MotionEvent.class, new XC_MethodHook() {
+                    String touchHandler = Build.VERSION.SDK_INT >= 33 ? "com.android.systemui.shade.PanelViewController$TouchHandler" : "com.android.systemui.statusbar.phone.PanelViewController$TouchHandler";
+                    findAndHookMethod(touchHandler, param.classLoader, "onTouch", View.class, MotionEvent.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
-                            if (param.args[0].getClass().getName().equals("com.android.systemui.statusbar.phone.NotificationPanelView")
+                            String notificationPanelView = Build.VERSION.SDK_INT >= 33 ? "com.android.systemui.shade.NotificationPanelView" : "com.android.systemui.statusbar.phone.NotificationPanelView";
+                            if (param.args[0].getClass().getName().equals(notificationPanelView)
                                     && mNotificationPanelViewController != null && mDoubleTapGesture != null) {
                                 MotionEvent event = (MotionEvent) param.args[1];
                                 boolean isExpanded = getBooleanField(mNotificationPanelViewController, "mQsExpanded");
@@ -440,6 +444,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 boolean isKeyguard = getIntField(mNotificationPanelViewController, "mBarState") == 1
                                         && !isPulsing && !isDozing;
                                 boolean isStatusBar = event.getY() < mStatusBarHeight && !isExpanded;
+
                                 if ((isKeyguard && pref.getBoolean("trick_doubleTapLockScreen", false))
                                         || (isStatusBar && pref.getBoolean("trick_doubleTapStatusBar", false)))
                                     mDoubleTapGesture.onTouchEvent(event);
@@ -819,112 +824,221 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_skipTrack", true) || pref.getBoolean("trick_powerTorch", false)) {
-                findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "init", Context.class, "android.view.IWindowManager", "com.android.server.policy.WindowManagerPolicy.WindowManagerFuncs", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        if (pref.getBoolean("trick_skipTrack", true)) {
-                            Runnable mVolumeUpLongPress = () -> {
-                                mVolumeLongPress = true;
-                                Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
-                                KeyEvent keyEvent = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT, 0);
-                                keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
-                                mAudioManager.dispatchMediaKeyEvent(keyEvent);
+                if (Build.VERSION.SDK_INT >= 33) {
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "initKeyCombinationRules", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            if (pref.getBoolean("trick_skipTrack", true)) {
+                                Runnable mVolumeUpLongPress = () -> {
+                                    mVolumeLongPress = true;
+                                    Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
+                                    KeyEvent keyEvent = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT, 0);
+                                    keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                                    mAudioManager.dispatchMediaKeyEvent(keyEvent);
 
-                                keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
-                                keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
-                                mAudioManager.dispatchMediaKeyEvent(keyEvent);
-                                callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
-                            };
-
-                            Runnable mVolumeDownLongPress = () -> {
-                                mVolumeLongPress = true;
-                                Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
-                                KeyEvent keyEvent = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PREVIOUS, 0);
-                                keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
-                                mAudioManager.dispatchMediaKeyEvent(keyEvent);
-
-                                keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
-                                keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
-                                mAudioManager.dispatchMediaKeyEvent(keyEvent);
-                                callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
-                            };
-
-                            setAdditionalInstanceField(param.thisObject, "mVolumeUpLongPress", mVolumeUpLongPress);
-                            setAdditionalInstanceField(param.thisObject, "mVolumeDownLongPress", mVolumeDownLongPress);
-                        }
-
-                        if (pref.getBoolean("trick_powerTorch", false)) {
-                            if (mTorchCallback == null) {
-                                mTorchCallback = new CameraManager.TorchCallback() {
-                                    @Override
-                                    public void onTorchModeChanged(String cameraId, boolean enabled) {
-                                        mTorchEnabled = enabled;
-                                        if (mProximityListener != null) {
-                                            mSensorManager.unregisterListener(mProximityListener);
-                                            mProximityListener = null;
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onTorchModeUnavailable(String cameraId) {
-                                        mTorchEnabled = false;
-                                        if (mProximityListener != null) {
-                                            mSensorManager.unregisterListener(mProximityListener);
-                                            mProximityListener = null;
-                                        }
-                                    }
+                                    keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
+                                    keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                                    mAudioManager.dispatchMediaKeyEvent(keyEvent);
+                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
                                 };
+
+                                Runnable mVolumeDownLongPress = () -> {
+                                    mVolumeLongPress = true;
+                                    Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
+                                    KeyEvent keyEvent = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PREVIOUS, 0);
+                                    keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                                    mAudioManager.dispatchMediaKeyEvent(keyEvent);
+
+                                    keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
+                                    keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                                    mAudioManager.dispatchMediaKeyEvent(keyEvent);
+                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                };
+
+                                setAdditionalInstanceField(param.thisObject, "mVolumeUpLongPress", mVolumeUpLongPress);
+                                setAdditionalInstanceField(param.thisObject, "mVolumeDownLongPress", mVolumeDownLongPress);
                             }
 
-                            Runnable mPowerDownLongPress = () -> {
-                                if (!mTorchEnabled) {
-                                    synchronized (mProximityWakeLock) {
-                                        mProximityListener = new SensorEventListener() {
-                                            @Override
-                                            public void onSensorChanged(SensorEvent event) {
-                                                if (mProximityWakeLock.isHeld())
-                                                    mProximityWakeLock.release();
-                                                if (mProximityListener != null) {
-                                                    mSensorManager.unregisterListener(mProximityListener);
-                                                    mProximityListener = null;
-                                                }
-                                                if (event.values[0] >= mProximitySensor.getMaximumRange()) {
-                                                    mPowerLongPress = true;
-                                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                            if (pref.getBoolean("trick_powerTorch", false)) {
+                                if (mTorchCallback == null) {
+                                    mTorchCallback = new CameraManager.TorchCallback() {
+                                        @Override
+                                        public void onTorchModeChanged(String cameraId, boolean enabled) {
+                                            mTorchEnabled = enabled;
+                                            if (mProximityListener != null) {
+                                                mSensorManager.unregisterListener(mProximityListener);
+                                                mProximityListener = null;
+                                            }
+                                        }
 
-                                                    try {
-                                                        mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
-                                                        mTorchEnabled = !mTorchEnabled;
-                                                    } catch (Exception e) {
+                                        @Override
+                                        public void onTorchModeUnavailable(String cameraId) {
+                                            mTorchEnabled = false;
+                                            if (mProximityListener != null) {
+                                                mSensorManager.unregisterListener(mProximityListener);
+                                                mProximityListener = null;
+                                            }
+                                        }
+                                    };
+                                }
+
+                                Runnable mPowerDownLongPress = () -> {
+                                    if (!mTorchEnabled) {
+                                        synchronized (mProximityWakeLock) {
+                                            mProximityListener = new SensorEventListener() {
+                                                @Override
+                                                public void onSensorChanged(SensorEvent event) {
+                                                    if (mProximityWakeLock.isHeld())
+                                                        mProximityWakeLock.release();
+                                                    if (mProximityListener != null) {
+                                                        mSensorManager.unregisterListener(mProximityListener);
+                                                        mProximityListener = null;
+                                                    }
+                                                    if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                        mPowerLongPress = true;
+                                                        callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+
+                                                        try {
+                                                            mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                                            mTorchEnabled = !mTorchEnabled;
+                                                        } catch (Exception e) {
+                                                        }
                                                     }
                                                 }
-                                            }
 
-                                            @Override
-                                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                            }
-                                        };
+                                                @Override
+                                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                                }
+                                            };
+                                        }
+                                        mSensorManager.registerListener(mProximityListener,
+                                                mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                    } else {
+                                        mPowerLongPress = true;
+                                        callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+
+                                        try {
+                                            mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                            mTorchEnabled = !mTorchEnabled;
+                                        } catch (Exception e) {
+                                        }
                                     }
-                                    mSensorManager.registerListener(mProximityListener,
-                                            mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
-                                } else {
-                                    mPowerLongPress = true;
-                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                    if (mProximityWakeLock.isHeld())
+                                        mProximityWakeLock.release();
+                                };
 
-                                    try {
-                                        mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
-                                        mTorchEnabled = !mTorchEnabled;
-                                    } catch (Exception e) {
-                                    }
-                                }
-                                if (mProximityWakeLock.isHeld())
-                                    mProximityWakeLock.release();
-                            };
-
-                            setAdditionalInstanceField(param.thisObject, "mPowerDownLongPress", mPowerDownLongPress);
+                                setAdditionalInstanceField(param.thisObject, "mPowerDownLongPress", mPowerDownLongPress);
+                            }
                         }
-                    }
-                });
+                    });
+                } else {
+                    findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "init", Context.class, "android.view.IWindowManager", "com.android.server.policy.WindowManagerPolicy.WindowManagerFuncs", new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            if (pref.getBoolean("trick_skipTrack", true)) {
+                                Runnable mVolumeUpLongPress = () -> {
+                                    mVolumeLongPress = true;
+                                    Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
+                                    KeyEvent keyEvent = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT, 0);
+                                    keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                                    mAudioManager.dispatchMediaKeyEvent(keyEvent);
+
+                                    keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
+                                    keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                                    mAudioManager.dispatchMediaKeyEvent(keyEvent);
+                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                };
+
+                                Runnable mVolumeDownLongPress = () -> {
+                                    mVolumeLongPress = true;
+                                    Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
+                                    KeyEvent keyEvent = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PREVIOUS, 0);
+                                    keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                                    mAudioManager.dispatchMediaKeyEvent(keyEvent);
+
+                                    keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
+                                    keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                                    mAudioManager.dispatchMediaKeyEvent(keyEvent);
+                                    callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+                                };
+
+                                setAdditionalInstanceField(param.thisObject, "mVolumeUpLongPress", mVolumeUpLongPress);
+                                setAdditionalInstanceField(param.thisObject, "mVolumeDownLongPress", mVolumeDownLongPress);
+                            }
+
+                            if (pref.getBoolean("trick_powerTorch", false)) {
+                                if (mTorchCallback == null) {
+                                    mTorchCallback = new CameraManager.TorchCallback() {
+                                        @Override
+                                        public void onTorchModeChanged(String cameraId, boolean enabled) {
+                                            mTorchEnabled = enabled;
+                                            if (mProximityListener != null) {
+                                                mSensorManager.unregisterListener(mProximityListener);
+                                                mProximityListener = null;
+                                            }
+                                        }
+
+                                        @Override
+                                        public void onTorchModeUnavailable(String cameraId) {
+                                            mTorchEnabled = false;
+                                            if (mProximityListener != null) {
+                                                mSensorManager.unregisterListener(mProximityListener);
+                                                mProximityListener = null;
+                                            }
+                                        }
+                                    };
+                                }
+
+                                Runnable mPowerDownLongPress = () -> {
+                                    if (!mTorchEnabled) {
+                                        synchronized (mProximityWakeLock) {
+                                            mProximityListener = new SensorEventListener() {
+                                                @Override
+                                                public void onSensorChanged(SensorEvent event) {
+                                                    if (mProximityWakeLock.isHeld())
+                                                        mProximityWakeLock.release();
+                                                    if (mProximityListener != null) {
+                                                        mSensorManager.unregisterListener(mProximityListener);
+                                                        mProximityListener = null;
+                                                    }
+                                                    if (event.values[0] >= mProximitySensor.getMaximumRange()) {
+                                                        mPowerLongPress = true;
+                                                        callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+
+                                                        try {
+                                                            mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                                            mTorchEnabled = !mTorchEnabled;
+                                                        } catch (Exception e) {
+                                                        }
+                                                    }
+                                                }
+
+                                                @Override
+                                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                                }
+                                            };
+                                        }
+                                        mSensorManager.registerListener(mProximityListener,
+                                                mProximitySensor, SensorManager.SENSOR_DELAY_FASTEST);
+                                    } else {
+                                        mPowerLongPress = true;
+                                        callMethod(param.thisObject, "performHapticFeedback", new Class<?>[]{int.class, boolean.class, String.class}, HapticFeedbackConstants.LONG_PRESS, false, null);
+
+                                        try {
+                                            mCameraManager.setTorchMode(mCameraId, !mTorchEnabled);
+                                            mTorchEnabled = !mTorchEnabled;
+                                        } catch (Exception e) {
+                                        }
+                                    }
+                                    if (mProximityWakeLock.isHeld())
+                                        mProximityWakeLock.release();
+                                };
+
+                                setAdditionalInstanceField(param.thisObject, "mPowerDownLongPress", mPowerDownLongPress);
+                            }
+                        }
+                    });
+                }
 
                 findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "interceptKeyBeforeQueueing", KeyEvent.class, int.class, new XC_MethodHook() {
                     @Override
