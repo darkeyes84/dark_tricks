@@ -42,9 +42,6 @@ import com.darkeyes.tricks.features.Feature;
 import com.darkeyes.tricks.features.FeatureNames;
 
 import java.io.File;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
@@ -108,8 +105,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private float mBottom;
     private Object mEdgeObject;
     private String mOldEntry;
-    private Date securityPatch;
-    private Date december;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
 
@@ -165,12 +160,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     }
 
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam param) {
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
-        try {
-            securityPatch = format.parse(Build.VERSION.SECURITY_PATCH);
-            december = format.parse("2022-12-01");
-        } catch (ParseException ignored) {
-        }
         final Utils utils = new Utils();
 
         if (param.packageName.equals("com.android.systemui")) {
@@ -718,7 +707,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
 
             if (pref.getBoolean("trick_skipTrack", true) || pref.getBoolean("trick_powerTorch", false)) {
                 if (Build.VERSION.SDK_INT >= 33) {
-                    String init = securityPatch.after(december) ? "initKeyCombinationRules" : "init";
+                    String init = utils.isSecurityPatchAfterDecember2022() ? "initKeyCombinationRules" : "init";
                     findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, init, new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
