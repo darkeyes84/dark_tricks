@@ -1,5 +1,6 @@
 package com.darkeyes.tricks;
 
+import com.darkeyes.tricks.features.DoubleTapStatusBarOrLockScreenSdk29;
 import com.darkeyes.tricks.features.DoubleTapStatusBarOrLockScreenSdk31AndHigher;
 import com.darkeyes.tricks.features.Feature;
 import com.darkeyes.tricks.features.QuickPullDownFeatureSdk31AndHigher;
@@ -20,6 +21,8 @@ public class FeatureFactory {
 
         if (DoubleTapStatusBarOrLockScreenSdk31AndHigher.isPlatformSupported(featureName)) {
             feature = new DoubleTapStatusBarOrLockScreenSdk31AndHigher();
+        } else if (DoubleTapStatusBarOrLockScreenSdk29.isPlatformSupported(featureName)) {
+            feature = new DoubleTapStatusBarOrLockScreenSdk29();
         } else if (QuickPullDownFeatureSdk31AndHigher.isPlatformSupported(featureName)) {
             feature = new QuickPullDownFeatureSdk31AndHigher();
         }
@@ -34,6 +37,9 @@ public class FeatureFactory {
      */
     public static boolean hasFeature(final String featureName) {
         boolean hasFeature = DoubleTapStatusBarOrLockScreenSdk31AndHigher.isPlatformSupported(featureName);
+        if (!hasFeature) {
+            hasFeature = DoubleTapStatusBarOrLockScreenSdk29.isPlatformSupported(featureName);
+        }
         if (!hasFeature) {
             hasFeature = QuickPullDownFeatureSdk31AndHigher.isPlatformSupported(featureName);
         }
