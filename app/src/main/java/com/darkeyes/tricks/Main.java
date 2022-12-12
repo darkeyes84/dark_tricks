@@ -30,16 +30,16 @@ import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.ArrayMap;
-import android.view.GestureDetector;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.View;
 import android.view.ViewConfiguration;
-import android.view.ViewGroup;
 import android.widget.TextView;
+
+import com.darkeyes.tricks.features.Feature;
+import com.darkeyes.tricks.features.FeatureNames;
 
 import java.io.File;
 import java.text.ParseException;
@@ -99,11 +99,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private ArrayMap<String, Long> mLastTimestamps = new ArrayMap<>();
     private long mDownTime = 0L;
     private boolean mCameraGesture;
-    private GestureDetector mDoubleTapGesture;
-    private Object mNotificationPanelViewController;
-    private int mStatusBarHeight = 0;
-    private int mStatusBarHeaderHeight = 0;
-    private long mLastDownEvent = 0L;
     private Object mLockPatterUtils;
     private Object mLockCallback;
     private Object mKeyguardMonitor;
@@ -176,6 +171,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             december = format.parse("2022-12-01");
         } catch (ParseException ignored) {
         }
+        final Utils utils = new Utils();
 
         if (param.packageName.equals("com.android.systemui")) {
             classLoader = param.classLoader;
@@ -366,131 +362,17 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
             }
 
-            if ((pref.getBoolean("trick_doubleTapStatusBar", false) || (pref.getBoolean("trick_doubleTapLockScreen", false))
-                    || pref.getBoolean("trick_quickPulldown", true)) && Build.VERSION.SDK_INT >= 31) {
-
-                String notificationPanelViewController = securityPatch.after(december) ? "com.android.systemui.shade.NotificationPanelViewController" : "com.android.systemui.statusbar.phone.NotificationPanelViewController";
-                findAndHookMethod(notificationPanelViewController, param.classLoader, "onFinishInflate", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        mNotificationPanelViewController = param.thisObject;
-
-                        if (pref.getBoolean("trick_doubleTapStatusBar", false) || pref.getBoolean("trick_doubleTapLockScreen", false)) {
-                            mStatusBarHeight = getIntField(param.thisObject, "mStatusBarMinHeight");
-                            mStatusBarHeaderHeight = getIntField(param.thisObject, "mStatusBarHeaderHeightKeyguard");
-                            View view = (View) getObjectField(param.thisObject, "mView");
-                            if (mPowerManager == null)
-                                mPowerManager = (PowerManager) getObjectField(param.thisObject, "mPowerManager");
-                            if (mDoubleTapGesture == null) {
-                                mDoubleTapGesture = new GestureDetector(view.getContext(),
-                                        new GestureDetector.SimpleOnGestureListener() {
-                                            @Override
-                                            public boolean onDoubleTap(MotionEvent e) {
-                                                callMethod(mPowerManager, "goToSleep", e.getEventTime());
-                                                return true;
-                                            }
-                                        });
-                            }
-                        }
-                    }
-                });
-
-                if (pref.getBoolean("trick_quickPulldown", true)) {
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        findAndHookMethod("com.android.systemui.statusbar.phone.HeadsUpTouchHelper", param.classLoader, "onTouchEvent", MotionEvent.class, new XC_MethodHook() {
-                            @Override
-                            protected void beforeHookedMethod(MethodHookParam param) {
-                                MotionEvent event = (MotionEvent) param.args[0];
-                                if (getBooleanField(mNotificationPanelViewController, "mSplitShadeEnabled") &&
-                                        (boolean) callMethod(mNotificationPanelViewController, "touchXOutsideOfQs", event.getX()))
-                                    return;
-                                ViewGroup view = (ViewGroup) getObjectField(mNotificationPanelViewController, "mView");
-                                int state = (int) getObjectField(mNotificationPanelViewController, "mBarState");
-                                int height = getIntField(mNotificationPanelViewController, "mStatusBarMinHeight");
-                                boolean tracking = getBooleanField(param.thisObject, "mTrackingHeadsUp");
-
-                                float w = view.getMeasuredWidth();
-                                float x = event.getX();
-                                float y = event.getY(event.getActionIndex());
-
-                                if (x > 3.f * w / 4.f && state == 0 && !tracking && y < height) {
-                                    setBooleanField(mNotificationPanelViewController, "mQsExpandImmediate", true);
-                                    callMethod(mNotificationPanelViewController, "setShowShelfOnly", true);
-                                    String update = securityPatch.after(december) ? "updateExpandedHeightToMaxHeight" : "requestPanelHeightUpdate";
-                                    callMethod(mNotificationPanelViewController, update);
-                                    callMethod(mNotificationPanelViewController, "setListening", true);
-                                }
-                            }
-                        });
-                    } else {
-                        findAndHookMethod("com.android.systemui.statusbar.phone.NotificationPanelViewController", param.classLoader, "isOpenQsEvent", MotionEvent.class, new XC_MethodHook() {
-                            @Override
-                            protected void afterHookedMethod(MethodHookParam param) {
-                                if ((boolean) param.getResult() == false) {
-                                    MotionEvent event = (MotionEvent) param.args[0];
-                                    ViewGroup view = (ViewGroup) getObjectField(param.thisObject, "mView");
-                                    int state = (int) getObjectField(param.thisObject, "mBarState");
-                                    float w = view.getMeasuredWidth();
-                                    float x = event.getX();
-
-                                    param.setResult(x > 3.f * w / 4.f && state == 0);
-                                }
-                            }
-                        });
-                    }
+            if ((pref.getBoolean(FeatureNames.TRICK_DOUBLE_TAP_STATUSBAR, false) || (pref.getBoolean(FeatureNames.TRICK_DOUBLE_TAP_LOCKSCREEN, false))) ) {
+                Feature feature = FeatureFactory.createFeature(FeatureNames.TRICK_DOUBLE_TAP_STATUSBAR);
+                if (feature != null) {
+                    feature.inject(param, pref, utils);
                 }
+            }
 
-                if (pref.getBoolean("trick_doubleTapStatusBar", false) || pref.getBoolean("trick_doubleTapLockScreen", false)) {
-                    String touchHandler = securityPatch.after(december) ? "com.android.systemui.shade.PanelViewController$TouchHandler" : "com.android.systemui.statusbar.phone.PanelViewController$TouchHandler";
-                    findAndHookMethod(touchHandler, param.classLoader, "onTouch", View.class, MotionEvent.class, new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            String notificationPanelView = securityPatch.after(december) ? "com.android.systemui.shade.NotificationPanelView" : "com.android.systemui.statusbar.phone.NotificationPanelView";
-                            if (param.args[0].getClass().getName().equals(notificationPanelView)
-                                    && mNotificationPanelViewController != null && mDoubleTapGesture != null) {
-                                MotionEvent event = (MotionEvent) param.args[1];
-                                boolean isExpanded = getBooleanField(mNotificationPanelViewController, "mQsExpanded");
-                                boolean isPulsing = getBooleanField(mNotificationPanelViewController, "mPulsing");
-                                boolean isDozing = getBooleanField(mNotificationPanelViewController, "mDozing");
-                                boolean isKeyguard = getIntField(mNotificationPanelViewController, "mBarState") == 1
-                                        && !isPulsing && !isDozing;
-                                boolean isStatusBar = event.getY() < mStatusBarHeight && !isExpanded;
-
-                                if ((isKeyguard && pref.getBoolean("trick_doubleTapLockScreen", false))
-                                        || (isStatusBar && pref.getBoolean("trick_doubleTapStatusBar", false)))
-                                    mDoubleTapGesture.onTouchEvent(event);
-                            }
-                        }
-                    });
-
-                    if (pref.getBoolean("trick_doubleTapLockScreen", false)) {
-                        findAndHookMethod("com.android.systemui.statusbar.DragDownHelper", param.classLoader, "onInterceptTouchEvent", MotionEvent.class, new XC_MethodHook() {
-                            @Override
-                            protected void beforeHookedMethod(MethodHookParam param) {
-                                MotionEvent event = (MotionEvent) param.args[0];
-                                long time = event.getEventTime();
-                                View host = (View) getObjectField(param.thisObject, "host");
-                                if (mPowerManager == null)
-                                    mPowerManager = (PowerManager) host.getContext().getSystemService(Context.POWER_SERVICE);
-                                if (event.getActionMasked() == MotionEvent.ACTION_DOWN
-                                        && event.getY() < mStatusBarHeaderHeight) {
-                                    if (time - mLastDownEvent < 300) {
-                                        callMethod(mPowerManager, "goToSleep", time);
-                                    }
-                                    mLastDownEvent = event.getEventTime();
-                                }
-                            }
-                        });
-                    }
-
-                    if (pref.getBoolean("trick_doubleTapStatusBar", false) && Build.VERSION.SDK_INT < 33) {
-                        findAndHookMethod("com.android.systemui.statusbar.phone.PanelViewController", param.classLoader, "startOpening", MotionEvent.class, new XC_MethodHook() {
-                            @Override
-                            protected void beforeHookedMethod(MethodHookParam param) {
-                                param.setResult(null);
-                            }
-                        });
-                    }
+            if (pref.getBoolean(FeatureNames.TRICK_QUICK_PULLDOWN, true)) {
+                Feature feature = FeatureFactory.createFeature(FeatureNames.TRICK_QUICK_PULLDOWN);
+                if (feature != null) {
+                    feature.inject(param, pref, utils);
                 }
             }
 
