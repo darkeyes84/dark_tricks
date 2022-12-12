@@ -17,6 +17,10 @@ import android.preference.SwitchPreference;
 
 import java.io.File;
 
+import static com.darkeyes.tricks.features.FeatureNames.TRICK_DOUBLE_TAP_LOCKSCREEN;
+import static com.darkeyes.tricks.features.FeatureNames.TRICK_DOUBLE_TAP_STATUSBAR;
+import static com.darkeyes.tricks.features.FeatureNames.TRICK_QUICK_PULLDOWN;
+
 public class SettingsActivity extends PreferenceActivity implements OnSharedPreferenceChangeListener {
 
     private EditTextPreference customCarrierText;
@@ -42,8 +46,8 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         SwitchPreference navbarAlwaysRight = (SwitchPreference) findPreference("trick_navbarAlwaysRight");
         SwitchPreference hideBuildVersion = (SwitchPreference) findPreference("trick_hideBuildVersion");
         SwitchPreference powerTorch = (SwitchPreference) findPreference("trick_powerTorch");
-        SwitchPreference doubleTapStatusBar = (SwitchPreference) findPreference("trick_doubleTapStatusBar");
-        SwitchPreference doubleTapLockScreen = (SwitchPreference) findPreference("trick_doubleTapLockScreen");
+        SwitchPreference doubleTapStatusBar = (SwitchPreference) findPreference(TRICK_DOUBLE_TAP_STATUSBAR);
+        SwitchPreference doubleTapLockScreen = (SwitchPreference) findPreference(TRICK_DOUBLE_TAP_LOCKSCREEN);
         quickUnlock = (SwitchPreference) findPreference("trick_quickUnlock");
         SwitchPreference batteryEstimate = (SwitchPreference) findPreference("trick_batteryEstimate");
         customCarrierText = (EditTextPreference) findPreference("trick_customCarrierText");
@@ -52,6 +56,7 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         SwitchPreference smallClock = (SwitchPreference) findPreference("trick_smallClock");
         gestureHeight = (ListPreference) findPreference("trick_gestureHeight");
         SwitchPreference expandedNotifications = (SwitchPreference) findPreference("trick_expandedNotifications");
+        SwitchPreference quickPulldown = (SwitchPreference) findPreference(TRICK_QUICK_PULLDOWN);
 
         getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
         updateSummary();
@@ -69,9 +74,14 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
             prefScreen.removePreference(hideBuildVersion);
             prefScreen.removePreference(lessNotifications);
         }
-        if (Build.VERSION.SDK_INT < 31) {
+
+        if (!FeatureFactory.hasFeature(TRICK_DOUBLE_TAP_STATUSBAR)) {
             prefScreen.removePreference(doubleTapStatusBar);
+        }
+        if (!FeatureFactory.hasFeature(TRICK_DOUBLE_TAP_LOCKSCREEN)) {
             prefScreen.removePreference(doubleTapLockScreen);
+        }
+        if (Build.VERSION.SDK_INT < 31) {
             prefScreen.removePreference(quickUnlock);
             prefScreen.removePreference(batteryEstimate);
             prefScreen.removePreference(smallClock);
@@ -83,6 +93,9 @@ public class SettingsActivity extends PreferenceActivity implements OnSharedPref
         }
         if (!torchAvailable()) {
             prefScreen.removePreference(powerTorch);
+        }
+        if (!FeatureFactory.hasFeature(TRICK_QUICK_PULLDOWN)) {
+            prefScreen.removePreference(quickPulldown);
         }
     }
 
