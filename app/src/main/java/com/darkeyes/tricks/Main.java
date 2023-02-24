@@ -97,7 +97,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private PowerManager.WakeLock mWakeUpWakeLock;
     private int MSG_WAKE_UP = 100;
     private ArrayMap<String, Long> mLastTimestamps = new ArrayMap<>();
-    private long mDownTime = 0L;
+    private boolean mVolumeUp = false;
+    private boolean mVolumeDown = false;
     private boolean mCameraGesture;
     private GestureDetector mDoubleTapGesture;
     private Object mNotificationPanelViewController;
@@ -1116,12 +1117,25 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                                 }
                             }
 
-                            if (keyCode == KeyEvent.KEYCODE_POWER && mPowerManager.isInteractive()) {
-                                mDownTime = event.getEventTime();
+                            if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+                                if (event.getAction() == KeyEvent.ACTION_DOWN && mPowerManager.isInteractive()) {
+                                    mVolumeUp = true;
+                                }
+                                else {
+                                    mVolumeUp = false;
+                                }
                             }
 
-                            if (keyCode == KeyEvent.KEYCODE_POWER && ((!mPowerManager.isInteractive() &&
-                                    (event.getEventTime() - mDownTime > 300)) || mTorchEnabled) && event.getSource() != InputDevice.SOURCE_UNKNOWN) {
+                            if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                                if (event.getAction() == KeyEvent.ACTION_DOWN && mPowerManager.isInteractive()) {
+                                    mVolumeDown = true;
+                                }
+                                else {
+                                    mVolumeDown = false;
+                                }
+                            }
+
+                            if (keyCode == KeyEvent.KEYCODE_POWER && mVolumeUp == false && mVolumeDown == false && event.getSource() != InputDevice.SOURCE_UNKNOWN) {
                                 if (mSensorManager == null)
                                     mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
                                 if (mProximitySensor == null)
