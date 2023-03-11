@@ -760,7 +760,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             }
 
             if (pref.getBoolean("trick_expandedNotifications", false) && Build.VERSION.SDK_INT >= 31) {
-                findAndHookMethod("com.android.systemui.statusbar.notification.row.ExpandableNotificationRow", param.classLoader, "setSystemExpanded", boolean.class, new XC_MethodHook() {
+                String expandableNotificationRow = isPixelDecember ? "com.android.systemui.statusbar.notification.row.ExpandableNotificationRowController" : "com.android.systemui.statusbar.notification.row.ExpandableNotificationRow";
+                findAndHookMethod(expandableNotificationRow, param.classLoader, "setSystemExpanded", boolean.class, new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         param.args[0] = true;
