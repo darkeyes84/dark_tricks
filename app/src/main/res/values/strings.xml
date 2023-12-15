@@ -1,36 +1,45 @@
 <resources>
     <string name="app_name">Dark Tricks</string>
+
     <string name="show4gForLte_title">Show 4G</string>
     <string name="show4gForLte_summary">Always show 4G instead of LTE</string>
+
     <string name="hideLtePlus_title">Hide LTE+/4G+</string>
     <string name="hideLtePlus_summary">Always display LTE/4G even when LTE+/4G+ is available</string>
-    <string name="useKeyguardPhone_title">Use phone on lockscreen</string>
-    <string name="useKeyguardPhone_summary">Replace voice assist shortcut on the lockscreen with phone shortcut</string>
+
     <string name="hideNextAlarm_title">Hide next alarm</string>
-    <string name="hideNextAlarm_summary">Remove icon from the status bar and next alarm from the lockscreen and the quick settings</string>
-    <string name="navbarAlwaysRight_title">Navigation bar on the right</string>
-    <string name="navbarAlwaysRight_summary">When in landscape, always display the navigation bar on the right</string>
-    <string name="forceDarkTheme_title">Force dark theme</string>
-    <string name="forceDarkTheme_summary">Always enable dark theme even on light wallpapers</string>
-    <string name="hideAdbNotification_title">Hide ADB notification</string>
-    <string name="hideAdbNotification_summary">Remove the notification when USB debugging is enabled</string>
-    <string name="hideVpn_title">Hide VPN notifications</string>
-    <string name="hideVpn_summary">Remove icon from the status bar and notification from the quick settings</string>
-    <string name="hideCert_title">Hide user certificate notification</string>
-    <string name="hideCert_summary">Remove \"Network may be monitored\" from the quick settings</string>
+    <string name="hideNextAlarm_summary">Remove icon from the status bar and next alarm from the quick settings and the lockscreen</string>
+
     <string name="hideBuildVersion_title">Hide build version</string>
     <string name="hideBuildVersion_summary">Remove build version from the quick settings when developer options are enabled</string>
-    <string name="customCarrierText_title">Edit carrier text</string>
-    <string name="cursorControl_title">Volume keys control cursor</string>
-    <string name="cursorControl_disabled">Disabled</string>
-    <string name="cursorControl_upleft">Volume up/down moves cursor left/right</string>
-    <string name="cursorControl_upright">Volume up/down moves cursor right/left</string>
-    <string name="skipTrack_title">Volume keys skip track</string>
-    <string name="skipTrack_summary">Skip track by long pressing volume keys while screen is off</string>
-    <string name="powerTorch_title">Power key toggles torch</string>
-    <string name="powerTorch_summary">Toggle torch by long pressing power key while screen is off</string>
+
+    <string name="hideVpn_title">Hide VPN notification</string>
+    <string name="hideVpn_summary">Remove icon from the status bar and notification from the quick settings</string>
+
+    <string name="hideCert_title">Hide user certificate notification</string>
+    <string name="hideCert_summary">Remove \"Network may be monitored\" from the quick settings</string>
+
+    <string name="hideAdGuard_title">Hide AdGuard apps from active apps</string>
+    <string name="hideAdGuard_summary">Don\'t show AdGuard and AdGuard VPN in the active apps notification in the quick settings</string>
+
+    <string name="circleActiveApps_title">Collapse active apps notification</string>
+    <string name="circleActiveApps_summary">Always show the number of active apps in a small circle in the quick settings</string>
+
+    <string name="hideAdbNotification_title">Hide ADB notification</string>
+    <string name="hideAdbNotification_summary">Remove the notification when USB debugging is enabled</string>
+
     <string name="proximityWakeUp_title">Prevent accidental wake up</string>
     <string name="proximityWakeUp_summary">Check the proximity sensor before waking up the phone</string>
+
+    <string name="powerTorch_title">Power key toggles torch</string>
+    <string name="powerTorch_summary">Toggle torch by long pressing power key while screen is off</string>
+
+    <string name="skipTrack_title">Volume keys skip track</string>
+    <string name="skipTrack_summary">Skip track by long pressing volume keys while screen is off</string>
+
+    <string name="screenOffNotifications_title">Screen off notifications only</string>
+    <string name="screenOffNotifications_summary">Prevent sound and vibration when screen is on</string>
+
     <string name="lessNotifications_title">Less frequent notifications (sound and vibration)</string>
     <string name="lessNotifications_disabled">Disabled</string>
     <string name="lessNotifications_5s">Mute for 5 seconds</string>
@@ -38,26 +47,14 @@
     <string name="lessNotifications_30s">Mute for 30 seconds</string>
     <string name="lessNotifications_1m">Mute for 1 minute</string>
     <string name="lessNotifications_2m">Mute for 2 minutes</string>
-    <string name="screenOffNotifications_title">Screen off notifications only</string>
-    <string name="screenOffNotifications_summary">Prevent sound and vibration when screen is on</string>
+
+    <string name="cursorControl_title">Volume keys control cursor</string>
+    <string name="cursorControl_disabled">Disabled</string>
+    <string name="cursorControl_upleft">Volume up/down moves cursor left/right</string>
+    <string name="cursorControl_upright">Volume up/down moves cursor right/left</string>
+
+    <string name="customCarrierText_title">Edit carrier text</string>
+
     <string name="OutlookPolicy_title">Bypass Outlook device policy</string>
     <string name="OutlookPolicy_summary">Remove screen lock requirements and the need to enable Device admin</string>
-    <string name="doubleTapStatusBar_title">Tap to sleep (status bar)</string>
-    <string name="doubleTapStatusBar_summary">Double tap on the status bar to turn off the screen</string>
-    <string name="doubleTapLockScreen_title">Tap to sleep (lockscreen)</string>
-    <string name="doubleTapLockScreen_summary">Double tap anywhere on the lockscreen to turn off the screen</string>
-    <string name="quickUnlock_title">Quick unlock</string>
-    <string name="quickUnlock_summary">Unavailable, recreate your PIN/password</string>
-    <string name="batteryEstimate_title">Battery duration estimate</string>
-    <string name="batteryEstimate_summary">Show battery duration estimate only when quick settings is expanded</string>
-    <string name="smallClock_title">Lockscreen small clock</string>
-    <string name="smallClock_summary">Force small clock on lockscreen even without notifications</string>
-    <string name="gestureHeight_title">Back gesture height</string>
-    <string name="gestureHeight_everywhere">Everywhere</string>
-    <string name="gestureHeight_two_third">2/3 of screen</string>
-    <string name="gestureHeight_one_third">1/3 of screen</string>
-    <string name="quickPulldown_title">Quick pulldown</string>
-    <string name="quickPulldown_summary">Right edge of status bar fully expands the quick settings</string>
-    <string name="expandedNotifications_title">Expanded notifications</string>
-    <string name="expandedNotifications_summary">All notifications are expanded by default</string>
 </resources>

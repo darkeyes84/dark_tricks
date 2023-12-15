@@ -1,138 +1,96 @@
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:key="prefScreen">
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <SwitchPreference
+    <SwitchPreferenceCompat
         android:key="trick_show4gForLte"
         android:title="@string/show4gForLte_title"
         android:summary="@string/show4gForLte_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
-    <SwitchPreference
+    <SwitchPreferenceCompat
         android:key="trick_hideLtePlus"
         android:title="@string/hideLtePlus_title"
         android:summary="@string/hideLtePlus_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_useKeyguardPhone"
-        android:title="@string/useKeyguardPhone_title"
-        android:summary="@string/useKeyguardPhone_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_smallClock"
-        android:title="@string/smallClock_title"
-        android:summary="@string/smallClock_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
-    <SwitchPreference
-        android:key="trick_expandedNotifications"
-        android:title="@string/expandedNotifications_title"
-        android:summary="@string/expandedNotifications_summary"
-        android:defaultValue="false" />
-
-    <SwitchPreference
+    <SwitchPreferenceCompat
         android:key="trick_hideNextAlarm"
         android:title="@string/hideNextAlarm_title"
         android:summary="@string/hideNextAlarm_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_batteryEstimate"
-        android:title="@string/batteryEstimate_title"
-        android:summary="@string/batteryEstimate_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
-    <SwitchPreference
-        android:key="trick_hideVpn"
-        android:title="@string/hideVpn_title"
-        android:summary="@string/hideVpn_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_hideCert"
-        android:title="@string/hideCert_title"
-        android:summary="@string/hideCert_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_navbarAlwaysRight"
-        android:title="@string/navbarAlwaysRight_title"
-        android:summary="@string/navbarAlwaysRight_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_forceDarkTheme"
-        android:title="@string/forceDarkTheme_title"
-        android:summary="@string/forceDarkTheme_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_hideAdbNotification"
-        android:title="@string/hideAdbNotification_title"
-        android:summary="@string/hideAdbNotification_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
+    <SwitchPreferenceCompat
         android:key="trick_hideBuildVersion"
         android:title="@string/hideBuildVersion_title"
         android:summary="@string/hideBuildVersion_summary"
-        android:defaultValue="true" />
-
-    <SwitchPreference
-        android:key="trick_doubleTapStatusBar"
-        android:title="@string/doubleTapStatusBar_title"
-        android:summary="@string/doubleTapStatusBar_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
-    <SwitchPreference
-        android:key="trick_doubleTapLockScreen"
-        android:title="@string/doubleTapLockScreen_title"
-        android:summary="@string/doubleTapLockScreen_summary"
+    <SwitchPreferenceCompat
+        android:key="trick_hideVpn"
+        android:title="@string/hideVpn_title"
+        android:summary="@string/hideVpn_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
-    <SwitchPreference
-        android:key="trick_quickPulldown"
-        android:title="@string/quickPulldown_title"
-        android:summary="@string/quickPulldown_summary"
-        android:defaultValue="true" />
-
-    <ListPreference
-        android:key="trick_gestureHeight"
-        android:title="@string/gestureHeight_title"
-        android:entries="@array/gestureHeight_entries"
-        android:entryValues="@array/gestureHeight_values"
-        android:defaultValue="0" />
-
-    <SwitchPreference
-        android:key="trick_quickUnlock"
-        android:title="@string/quickUnlock_title"
-        android:summary="@string/quickUnlock_summary"
+    <SwitchPreferenceCompat
+        android:key="trick_hideCert"
+        android:title="@string/hideCert_title"
+        android:summary="@string/hideCert_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
-    <SwitchPreference
+    <SwitchPreferenceCompat
+        android:key="trick_hideAdGuard"
+        android:title="@string/hideAdGuard_title"
+        android:summary="@string/hideAdGuard_summary"
+        app:iconSpaceReserved="false"
+        android:defaultValue="false" />
+
+    <SwitchPreferenceCompat
+        android:key="trick_circleActiveApps"
+        android:title="@string/circleActiveApps_title"
+        android:summary="@string/circleActiveApps_summary"
+        app:iconSpaceReserved="false"
+        android:defaultValue="false" />
+
+    <SwitchPreferenceCompat
+        android:key="trick_hideAdbNotification"
+        android:title="@string/hideAdbNotification_title"
+        android:summary="@string/hideAdbNotification_summary"
+        app:iconSpaceReserved="false"
+        android:defaultValue="false" />
+
+    <SwitchPreferenceCompat
         android:key="trick_proximityWakeUp"
         android:title="@string/proximityWakeUp_title"
         android:summary="@string/proximityWakeUp_summary"
-        android:defaultValue="true" />
+        app:iconSpaceReserved="false"
+        android:defaultValue="false" />
 
-    <SwitchPreference
+    <SwitchPreferenceCompat
         android:key="trick_powerTorch"
         android:title="@string/powerTorch_title"
         android:summary="@string/powerTorch_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
-    <SwitchPreference
+    <SwitchPreferenceCompat
         android:key="trick_skipTrack"
         android:title="@string/skipTrack_title"
         android:summary="@string/skipTrack_summary"
-        android:defaultValue="true" />
+        app:iconSpaceReserved="false"
+        android:defaultValue="false" />
 
-    <SwitchPreference
+    <SwitchPreferenceCompat
         android:key="trick_screenOffNotifications"
         android:title="@string/screenOffNotifications_title"
         android:summary="@string/screenOffNotifications_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
     <ListPreference
@@ -140,6 +98,8 @@
         android:title="@string/lessNotifications_title"
         android:entries="@array/lessNotifications_entries"
         android:entryValues="@array/lessNotifications_values"
+        android:summary="%s"
+        app:iconSpaceReserved="false"
         android:defaultValue="0" />
 
     <ListPreference
@@ -147,17 +107,22 @@
         android:title="@string/cursorControl_title"
         android:entries="@array/cursorControl_entries"
         android:entryValues="@array/cursorControl_values"
+        android:summary="%s"
+        app:iconSpaceReserved="false"
         android:defaultValue="0" />
 
     <EditTextPreference
         android:key="trick_customCarrierText"
         android:title="@string/customCarrierText_title"
+        app:useSimpleSummaryProvider="true"
+        app:iconSpaceReserved="false"
         android:defaultValue="" />
 
-    <SwitchPreference
+    <SwitchPreferenceCompat
         android:key="trick_OutlookPolicy"
         android:title="@string/OutlookPolicy_title"
         android:summary="@string/OutlookPolicy_summary"
+        app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
 </PreferenceScreen>

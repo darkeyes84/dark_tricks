@@ -1,5 +1,15 @@
 <resources>
 
-    <style name="AppTheme" parent="Theme.AppCompat.DayNight"></style>
+    <style name="AppTheme" parent="Theme.Material3.DynamicColors.DayNight">
+        <item name="preferenceTheme">@style/AppPreferenceThemeOverlay</item>
+    </style>
+
+    <style name="AppPreferenceThemeOverlay" parent="@style/PreferenceThemeOverlay">
+        <item name="switchPreferenceCompatStyle">@style/AppSwitchPreference</item>
+    </style>
+
+    <style name="AppSwitchPreference" parent="@style/Preference.SwitchPreferenceCompat.Material">
+        <item name="widgetLayout">@layout/preference_material_switch</item>
+    </style>
 
 </resources>

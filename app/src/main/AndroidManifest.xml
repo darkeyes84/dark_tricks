@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.darkeyes.tricks">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
     <application
         android:icon="@mipmap/ic_launcher"
@@ -12,35 +13,25 @@
             android:value="true" />
         <meta-data
             android:name="xposedminversion"
-            android:value="90" />
-        <meta-data
-            android:name="xposeddescription"
-            android:value="Dark_Eyes_&apos;s tricks" />
+            android:value="100" />
         <meta-data
             android:name="xposedsharedprefs"
             android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Dark_Eyes_&apos;s tricks" />
         <meta-data
             android:name="xposedscope"
             android:resource="@array/scopes" />
 
         <activity
             android:name=".SettingsActivity"
-            android:exported="true"
-            android:label="@string/app_name">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS"/>
             </intent-filter>
         </activity>
-
-        <receiver
-            android:name=".SettingsActivity$Receiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.darkeyes.tricks.SET_INTEGER" />
-                <action android:name="com.darkeyes.tricks.SET_BOOLEAN" />
-            </intent-filter>
-        </receiver>
     </application>
 
 </manifest>
