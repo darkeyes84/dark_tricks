@@ -18,6 +18,32 @@
         <item>120000</item>
     </string-array>
 
+    <string-array name="gestureHeight_entries">
+        <item>@string/gestureHeight_everywhere</item>
+        <item>@string/gestureHeight_ten</item>
+        <item>@string/gestureHeight_twenty</item>
+        <item>@string/gestureHeight_thirty</item>
+        <item>@string/gestureHeight_fourty</item>
+        <item>@string/gestureHeight_fifty</item>
+        <item>@string/gestureHeight_sixty</item>
+        <item>@string/gestureHeight_seventy</item>
+        <item>@string/gestureHeight_eighty</item>
+        <item>@string/gestureHeight_ninety</item>
+    </string-array>
+
+    <string-array name="gestureHeight_values" translatable="false">
+        <item>0</item>
+        <item>10</item>
+        <item>20</item>
+        <item>30</item>
+        <item>40</item>
+        <item>50</item>
+        <item>60</item>
+        <item>70</item>
+        <item>80</item>
+        <item>90</item>
+    </string-array>
+
     <string-array name="cursorControl_entries">
         <item>@string/cursorControl_disabled</item>
         <item>@string/cursorControl_upleft</item>

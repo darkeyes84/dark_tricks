@@ -103,6 +103,15 @@
         android:defaultValue="0" />
 
     <ListPreference
+        android:key="trick_gestureHeight"
+        android:title="@string/gestureHeight_title"
+        android:entries="@array/gestureHeight_entries"
+        android:entryValues="@array/gestureHeight_values"
+        android:summary="%s"
+        app:iconSpaceReserved="false"
+        android:defaultValue="0" />
+
+    <ListPreference
         android:key="trick_cursorControl"
         android:title="@string/cursorControl_title"
         android:entries="@array/cursorControl_entries"

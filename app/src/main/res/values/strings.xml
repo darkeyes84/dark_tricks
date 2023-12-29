@@ -48,6 +48,18 @@
     <string name="lessNotifications_1m">Mute for 1 minute</string>
     <string name="lessNotifications_2m">Mute for 2 minutes</string>
 
+    <string name="gestureHeight_title">Back gesture height</string>
+    <string name="gestureHeight_everywhere">Everywhere</string>
+    <string name="gestureHeight_ten">Bottom 90% of screen</string>
+    <string name="gestureHeight_twenty">Bottom 80% of screen</string>
+    <string name="gestureHeight_thirty">Bottom 70% of screen</string>
+    <string name="gestureHeight_fourty">Bottom 60% of screen</string>
+    <string name="gestureHeight_fifty">Bottom 50% of screen</string>
+    <string name="gestureHeight_sixty">Bottom 40% of screen</string>
+    <string name="gestureHeight_seventy">Bottom 30% of screen</string>
+    <string name="gestureHeight_eighty">Bottom 20% of screen</string>
+    <string name="gestureHeight_ninety">Bottom 10% of screen</string>
+
     <string name="cursorControl_title">Volume keys control cursor</string>
     <string name="cursorControl_disabled">Disabled</string>
     <string name="cursorControl_upleft">Volume up/down moves cursor left/right</string>

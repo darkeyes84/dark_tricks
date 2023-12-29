@@ -3,11 +3,11 @@ package com.darkeyes.tricks;
 import static androidx.core.content.ContextCompat.registerReceiver;
 import static de.robv.android.xposed.XposedBridge.hookAllConstructors;
 import static de.robv.android.xposed.XposedBridge.invokeOriginalMethod;
-import static de.robv.android.xposed.XposedBridge.log;
 import static de.robv.android.xposed.XposedHelpers.callMethod;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.findClass;
 import static de.robv.android.xposed.XposedHelpers.getBooleanField;
+import static de.robv.android.xposed.XposedHelpers.getFloatField;
 import static de.robv.android.xposed.XposedHelpers.getObjectField;
 import static de.robv.android.xposed.XposedHelpers.setBooleanField;
 import static de.robv.android.xposed.XposedHelpers.setObjectField;
@@ -17,6 +17,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Point;
 import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -41,6 +42,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.ViewConfiguration;
 import android.widget.TextView;
 
@@ -110,8 +112,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private boolean mHideBuildVersion;
     private Object mQSFooterView;
     private String mCustomCarrierText;
-    private Object mCarrierTextManager;
+    private Object mShadeCarrierGroupController;
     private Object mCarrierTextCallback;
+    private Object mInfo;
+    private int mGestureHeight;
+    private Object mEdgeBackGestureHandler;
     private boolean mOutlookPolicy;
 
     public void initZygote(IXposedHookZygoteInit.StartupParam startupParam) {
@@ -133,6 +138,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             mCircleActiveApps = prefs.getBoolean("trick_circleActiveApps", false);
             mHideBuildVersion = prefs.getBoolean("trick_hideBuildVersion", false);
             mCustomCarrierText = prefs.getString("trick_customCarrierText", "");
+            mGestureHeight = Integer.parseInt(prefs.getString("trick_gestureHeight", "0"));
             mOutlookPolicy = prefs.getBoolean("trick_OutlookPolicy", false);
         }
         findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onCreate", new XC_MethodHook() {
@@ -340,8 +346,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
 
                     if (mSkipTrack && (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP)) {
-                        if ((event.getFlags() & KeyEvent.FLAG_FROM_SYSTEM) != 0 &&
-                                !mPowerManager.isInteractive() && mAudioManager.isMusicActive()) {
+                        if ((event.getFlags() & KeyEvent.FLAG_FROM_SYSTEM) != 0 && !mPowerManager.isInteractive() && mAudioManager.isMusicActive()) {
 
                             if (event.getAction() == KeyEvent.ACTION_DOWN) {
                                 if (event.getRepeatCount() == 0) {
@@ -523,7 +528,6 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         }
                     }
                 }
-
             });
         } else if (param.packageName.equals("com.android.systemui")) {
             findAndHookMethod(Instrumentation.class, "newApplication", ClassLoader.class, String.class, Context.class, new XC_MethodHook() {
@@ -622,31 +626,55 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         setObjectField(mQSFooterView, "mShouldShowBuildText", false);
                 }
             });
-            findAndHookMethod("com.android.systemui.shade.carrier.ShadeCarrier", param.classLoader, "updateState", "com.android.systemui.shade.carrier.CellSignalState", boolean.class, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) {
-                    TextView mCarrierText = (TextView) getObjectField(param.thisObject, "mCarrierText");
-                    String carrierText = String.valueOf(mCarrierText.getText());
-                    carrierText = !mCustomCarrierText.isEmpty() ? mCustomCarrierText : carrierText.replace("Calling", "");
-                    mCarrierText.setText(carrierText.trim());
-                    mCarrierText.setGravity(Gravity.END);
-                }
-            });
-            findAndHookMethod("com.android.keyguard.CarrierTextManager", param.classLoader, "postToCallback", "com.android.keyguard.CarrierTextManager.CarrierTextCallbackInfo", new XC_MethodHook() {
+            findAndHookMethod("com.android.systemui.shade.carrier.ShadeCarrierGroupController", param.classLoader, "handleUpdateState", new XC_MethodHook() {
+                String carrierText = "";
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
-                    mCarrierTextManager = param.thisObject;
-                    Object info = param.args[0];
-                    String carrierText = (String) getObjectField(info, "carrierText");
-                    String customText = !mCustomCarrierText.isEmpty() ? mCustomCarrierText : carrierText.replace("Calling", "");
-                    setObjectField(info, "carrierText", customText.trim());
-                    param.args[0] = info;
+                    mShadeCarrierGroupController = param.thisObject;
+                    Object[] mCarrierGroups = (Object[]) getObjectField(param.thisObject, "mCarrierGroups");
+                    TextView mCarrierText = (TextView) getObjectField(mCarrierGroups[0], "mCarrierText");
+                    StackTraceElement[] stacktrace = Thread.currentThread().getStackTrace();
+                    if (stacktrace[6].getMethodName().equals("accept"))
+                        carrierText = String.valueOf(mCarrierText.getText());
+                    mCarrierText.setText(!mCustomCarrierText.isEmpty() ? mCustomCarrierText.trim() : carrierText.replace("Calling", "").trim());
+                    mCarrierText.setGravity(Gravity.END);
                 }
             });
             findAndHookMethod("com.android.keyguard.CarrierTextController", param.classLoader, "onInit", new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void beforeHookedMethod(MethodHookParam param) {
                     mCarrierTextCallback = getObjectField(param.thisObject, "mCarrierTextCallback");
+                }
+            });
+            findAndHookMethod("com.android.keyguard.CarrierTextController$1", param.classLoader, "updateCarrierInfo", "com.android.keyguard.CarrierTextManager.CarrierTextCallbackInfo", new XC_MethodHook() {
+                String carrierText = "";
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    mInfo = param.args[0];
+                    StackTraceElement[] stacktrace = Thread.currentThread().getStackTrace();
+                    if (stacktrace[6].getMethodName().equals("run"))
+                        carrierText = (String) getObjectField(mInfo, "carrierText");
+                    setObjectField(mInfo, "carrierText", !mCustomCarrierText.isEmpty() ? mCustomCarrierText.trim() : carrierText.replace("Calling", "").trim());
+                    param.args[0] = mInfo;
+                }
+            });
+            hookAllConstructors(findClass("com.android.systemui.navigationbar.gestural.EdgeBackGestureHandler", param.classLoader), new XC_MethodHook() {
+                protected void afterHookedMethod(MethodHookParam param) {
+                    mEdgeBackGestureHandler = param.thisObject;
+                }
+            });
+            findAndHookMethod("com.android.systemui.navigationbar.gestural.BackPanelController", param.classLoader, "onMotionEvent", MotionEvent.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (mGestureHeight > 0) {
+                        MotionEvent ev = (MotionEvent) param.args[0];
+                        Point mDisplaySize = (Point) getObjectField(mEdgeBackGestureHandler, "mDisplaySize");
+                        float mBottomGestureHeight = getFloatField(mEdgeBackGestureHandler, "mBottomGestureHeight");
+
+                        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN
+                                && (int) ev.getY() < (mDisplaySize.y - mBottomGestureHeight) * (float) mGestureHeight / 100)
+                            callMethod(mEdgeBackGestureHandler, "cancelGesture", ev);
+                    }
                 }
             });
         } else if (param.packageName.equals("com.microsoft.office.outlook")) {
@@ -707,11 +735,11 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 callMethod(mKeyguardZenAlarmViewController, "showAlarm");
         } else if ("trick_hideVpn".equals(key)) {
             mHideVpn = extras.getBoolean("value");
-            if (mPhoneStatusBarPolicy != null)
+            if (mSecurityControllerImpl != null)
                 callMethod(mSecurityControllerImpl, "fireCallbacks");
         } else if ("trick_hideCert".equals(key)) {
             mHideCert = extras.getBoolean("value");
-            if (mPhoneStatusBarPolicy != null)
+            if (mSecurityControllerImpl != null)
                 callMethod(mSecurityControllerImpl, "fireCallbacks");
         } else if ("trick_hideAdGuard".equals(key)) {
             mHideAdGuard = extras.getBoolean("value");
@@ -727,12 +755,13 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 callMethod(mQSFooterView, "setBuildText");
         } else if ("trick_customCarrierText".equals(key)) {
             mCustomCarrierText = extras.getString("value");
-            if (mCarrierTextManager != null) {
-                callMethod(mCarrierTextManager, "updateCarrierText");
-                callMethod(mCarrierTextManager, "handleSetListening", mCarrierTextCallback);
-                callMethod(mCarrierTextManager, "updateCarrierText");
-            }
-        } else if ("trick_OutlookPolicy".equals(key))
+            if (mShadeCarrierGroupController != null)
+                callMethod(mShadeCarrierGroupController, "handleUpdateState");
+            if (mCarrierTextCallback != null)
+                callMethod(mCarrierTextCallback, "updateCarrierInfo", mInfo);
+        } else if ("trick_gestureHeight".equals(key))
+            mGestureHeight = Integer.parseInt(extras.getString("value"));
+        else if ("trick_OutlookPolicy".equals(key))
             mOutlookPolicy = extras.getBoolean("value");
     }
 }
