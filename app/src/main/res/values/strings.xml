@@ -28,6 +28,14 @@
     <string name="hideAdbNotification_title">Hide ADB notification</string>
     <string name="hideAdbNotification_summary">Remove the notification when USB debugging is enabled</string>
 
+    <string name="doubleTapToSleep_title">Double tap to sleep</string>
+    <string name="doubleTapToSleep_summary">Double tap on the status bar or anywhere on the lockscreen to turn off the screen</string>
+
+    <string name="quickPulldown_title">Quick pulldown to expand the quick settings</string>
+    <string name="quickPulldown_disabled">Disabled</string>
+    <string name="quickPulldown_right">Right edge of status bar</string>
+    <string name="quickPulldown_left">Left edge of status bar</string>
+
     <string name="proximityWakeUp_title">Prevent accidental wake up</string>
     <string name="proximityWakeUp_summary">Check the proximity sensor before waking up the phone</string>
 

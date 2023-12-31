@@ -66,6 +66,31 @@
         android:defaultValue="false" />
 
     <SwitchPreferenceCompat
+        android:key="trick_doubleTapToSleep"
+        android:title="@string/doubleTapToSleep_title"
+        android:summary="@string/doubleTapToSleep_summary"
+        app:iconSpaceReserved="false"
+        android:defaultValue="false" />
+
+    <ListPreference
+        android:key="trick_quickPulldown"
+        android:title="@string/quickPulldown_title"
+        android:entries="@array/quickPulldown_entries"
+        android:entryValues="@array/quickPulldown_values"
+        android:summary="%s"
+        app:iconSpaceReserved="false"
+        android:defaultValue="0" />
+
+    <ListPreference
+        android:key="trick_gestureHeight"
+        android:title="@string/gestureHeight_title"
+        android:entries="@array/gestureHeight_entries"
+        android:entryValues="@array/gestureHeight_values"
+        android:summary="%s"
+        app:iconSpaceReserved="false"
+        android:defaultValue="0" />
+
+    <SwitchPreferenceCompat
         android:key="trick_proximityWakeUp"
         android:title="@string/proximityWakeUp_title"
         android:summary="@string/proximityWakeUp_summary"
@@ -86,6 +111,15 @@
         app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
+    <ListPreference
+        android:key="trick_cursorControl"
+        android:title="@string/cursorControl_title"
+        android:entries="@array/cursorControl_entries"
+        android:entryValues="@array/cursorControl_values"
+        android:summary="%s"
+        app:iconSpaceReserved="false"
+        android:defaultValue="0" />
+
     <SwitchPreferenceCompat
         android:key="trick_screenOffNotifications"
         android:title="@string/screenOffNotifications_title"
@@ -98,24 +132,6 @@
         android:title="@string/lessNotifications_title"
         android:entries="@array/lessNotifications_entries"
         android:entryValues="@array/lessNotifications_values"
-        android:summary="%s"
-        app:iconSpaceReserved="false"
-        android:defaultValue="0" />
-
-    <ListPreference
-        android:key="trick_gestureHeight"
-        android:title="@string/gestureHeight_title"
-        android:entries="@array/gestureHeight_entries"
-        android:entryValues="@array/gestureHeight_values"
-        android:summary="%s"
-        app:iconSpaceReserved="false"
-        android:defaultValue="0" />
-
-    <ListPreference
-        android:key="trick_cursorControl"
-        android:title="@string/cursorControl_title"
-        android:entries="@array/cursorControl_entries"
-        android:entryValues="@array/cursorControl_values"
         android:summary="%s"
         app:iconSpaceReserved="false"
         android:defaultValue="0" />

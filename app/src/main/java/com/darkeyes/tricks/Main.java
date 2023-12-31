@@ -3,11 +3,14 @@ package com.darkeyes.tricks;
 import static androidx.core.content.ContextCompat.registerReceiver;
 import static de.robv.android.xposed.XposedBridge.hookAllConstructors;
 import static de.robv.android.xposed.XposedBridge.invokeOriginalMethod;
+import static de.robv.android.xposed.XposedBridge.log;
 import static de.robv.android.xposed.XposedHelpers.callMethod;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.findClass;
+import static de.robv.android.xposed.XposedHelpers.findMethodExactIfExists;
 import static de.robv.android.xposed.XposedHelpers.getBooleanField;
 import static de.robv.android.xposed.XposedHelpers.getFloatField;
+import static de.robv.android.xposed.XposedHelpers.getIntField;
 import static de.robv.android.xposed.XposedHelpers.getObjectField;
 import static de.robv.android.xposed.XposedHelpers.setBooleanField;
 import static de.robv.android.xposed.XposedHelpers.setObjectField;
@@ -37,17 +40,20 @@ import android.service.notification.StatusBarNotification;
 import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
 import android.util.SparseArray;
+import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.TextView;
 
 import androidx.core.content.ContextCompat;
 
+import java.lang.reflect.Method;
 import java.util.Map;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -92,6 +98,10 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     };
     private int mCursorControl;
     private boolean mHideAdbNotification;
+    private boolean mDoubleTapToSleep;
+    private Object mNotificationPanelViewController;
+    private GestureDetector mDoubleTapGesture;
+    private int mQuickPulldown;
     private Object mUsbHandler;
     private boolean mSkipTrack;
     private boolean mPowerTorch;
@@ -124,6 +134,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             prefs = new XSharedPreferences("com.darkeyes.tricks", "com.darkeyes.tricks_shared");
             mCursorControl = Integer.parseInt(prefs.getString("trick_cursorControl", "0"));
             mHideAdbNotification = prefs.getBoolean("trick_hideAdbNotification", false);
+            mDoubleTapToSleep = prefs.getBoolean("trick_doubleTapToSleep", false);
+            mQuickPulldown = Integer.parseInt(prefs.getString("trick_quickPulldown", "0"));
             mSkipTrack = prefs.getBoolean("trick_skipTrack", false);
             mPowerTorch = prefs.getBoolean("trick_powerTorch", false);
             mProximityWakeUp = prefs.getBoolean("trick_proximityWakeUp", false);
@@ -141,7 +153,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             mGestureHeight = Integer.parseInt(prefs.getString("trick_gestureHeight", "0"));
             mOutlookPolicy = prefs.getBoolean("trick_OutlookPolicy", false);
         }
-        findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onCreate", new XC_MethodHook() {
+        findAndHookMethodIfExists("android.inputmethodservice.InputMethodService", null, "onCreate", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 mService = (InputMethodService) param.thisObject;
@@ -151,7 +163,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
             }
         });
-        findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onKeyDown", int.class, KeyEvent.class, new XC_MethodHook() {
+        findAndHookMethodIfExists("android.inputmethodservice.InputMethodService", null, "onKeyDown", int.class, KeyEvent.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 int keyCode = ((KeyEvent) param.args[1]).getKeyCode();
@@ -168,7 +180,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
             }
         });
-        findAndHookMethod("android.inputmethodservice.InputMethodService", null, "onKeyUp", int.class, KeyEvent.class, new XC_MethodHook() {
+        findAndHookMethodIfExists("android.inputmethodservice.InputMethodService", null, "onKeyUp", int.class, KeyEvent.class, new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 int keyCode = ((KeyEvent) param.args[1]).getKeyCode();
@@ -176,12 +188,10 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     param.setResult(true);
             }
         });
-
     }
-
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam param) {
         if (param.packageName.equals("android")) {
-            findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "initKeyCombinationRules", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.policy.PhoneWindowManager", param.classLoader, "initKeyCombinationRules", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     if (mContext == null) {
@@ -253,8 +263,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 }
             });
-
-            findAndHookMethod("com.android.server.usb.UsbDeviceManager$UsbHandler", param.classLoader, "updateAdbNotification", boolean.class, new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.usb.UsbDeviceManager$UsbHandler", param.classLoader, "updateAdbNotification", boolean.class, new XC_MethodHook() {
                 boolean connected;
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -269,8 +278,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         setBooleanField(param.thisObject, "mConnected", connected);
                 }
             });
-
-            findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "interceptKeyBeforeQueueing", KeyEvent.class, int.class, new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.policy.PhoneWindowManager", param.classLoader, "interceptKeyBeforeQueueing", KeyEvent.class, int.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     KeyEvent event = (KeyEvent) param.args[0];
@@ -400,7 +408,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 }
             });
-            findAndHookMethod("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.power.PowerManagerService", param.classLoader, "systemReady", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     Context context = (Context) getObjectField(param.thisObject, "mContext");
@@ -418,7 +426,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         mWakeLockPower = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DarkTricks:WakeUp");
                 }
             });
-            findAndHookMethod("com.android.server.power.PowerGroup", param.classLoader, "wakeUpLocked", long.class, int.class, String.class, int.class, String.class, int.class, "com.android.internal.util.LatencyTracker", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.power.PowerGroup", param.classLoader, "wakeUpLocked", long.class, int.class, String.class, int.class, String.class, int.class, "com.android.internal.util.LatencyTracker", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     mWakeUp = () -> {
@@ -473,7 +481,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 }
             });
-            findAndHookMethod("com.android.server.power.PowerManagerService$PowerManagerHandlerCallback", param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.power.PowerManagerService$PowerManagerHandlerCallback", param.classLoader, "handleMessage", Message.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     Message msg = (Message) param.args[0];
@@ -492,21 +500,21 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 }
             });
-            findAndHookMethod("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", long.class, new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.policy.PhoneWindowManager", param.classLoader, "powerLongPress", long.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     if (mProximityWakeUp && !mPowerManager.isInteractive())
                         param.setResult(null);
                 }
             });
-            findAndHookMethod("com.android.server.GestureLauncherService", param.classLoader, "handleCameraGesture", boolean.class, int.class, new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.GestureLauncherService", param.classLoader, "handleCameraGesture", boolean.class, int.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     if (mProximityWakeUp && !mCameraGesture)
                         param.setResult(false);
                 }
             });
-            findAndHookMethod("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.server.notification.NotificationManagerService", param.classLoader, "shouldMuteNotificationLocked", "com.android.server.notification.NotificationRecord", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     if ((boolean) param.getResult() == false) {
@@ -530,7 +538,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
             });
         } else if (param.packageName.equals("com.android.systemui")) {
-            findAndHookMethod(Instrumentation.class, "newApplication", ClassLoader.class, String.class, Context.class, new XC_MethodHook() {
+            findAndHookMethodIfExists(Instrumentation.class, "newApplication", ClassLoader.class, String.class, Context.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     if (mContext == null) {
@@ -539,14 +547,14 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 }
             });
-            findAndHookMethod("com.android.settingslib.mobile.MobileMappings$Config", param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.settingslib.mobile.MobileMappings$Config", param.classLoader, "readConfig", "android.content.Context", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     setBooleanField(param.getResult(), "hideLtePlus", mHideLtePlus);
                     setBooleanField(param.getResult(), "show4gForLte", mShow4gForLte);
                 }
             });
-            findAndHookMethod("com.android.systemui.statusbar.phone.PhoneStatusBarPolicy", param.classLoader, "updateAlarm", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.systemui.statusbar.phone.PhoneStatusBarPolicy", param.classLoader, "updateAlarm", new XC_MethodHook() {
                 boolean currentUserSetup;
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -561,7 +569,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         setBooleanField(param.thisObject, "mCurrentUserSetup", currentUserSetup);
                 }
             });
-            findAndHookMethod("com.google.android.systemui.smartspace.KeyguardZenAlarmViewController", param.classLoader, "showAlarm", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.google.android.systemui.smartspace.KeyguardZenAlarmViewController", param.classLoader, "showAlarm", new XC_MethodHook() {
                 Drawable alarmImage;
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -576,7 +584,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         setObjectField(param.thisObject, "alarmImage", alarmImage);
                 }
             });
-            findAndHookMethod("com.android.systemui.statusbar.policy.SecurityControllerImpl", param.classLoader, "fireCallbacks", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.systemui.statusbar.policy.SecurityControllerImpl", param.classLoader, "fireCallbacks", new XC_MethodHook() {
                 Object currentVpns;
                 Object hasCACerts;
                 @Override
@@ -591,7 +599,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     setObjectField(param.thisObject, "mHasCACerts", mHideCert ? new ArrayMap<Integer, Boolean>() : hasCACerts);
                 }
             });
-            findAndHookMethod("com.android.systemui.qs.FgsManagerControllerImpl", param.classLoader, "getNumVisiblePackagesLocked", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.systemui.qs.FgsManagerControllerImpl", param.classLoader, "getNumVisiblePackagesLocked", new XC_MethodHook() {
                 final Object[] UIControl = findClass("com.android.systemui.qs.FgsManagerControllerImpl$UIControl", param.classLoader).getEnumConstants();
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -604,7 +612,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 }
             });
-            findAndHookMethod("com.android.systemui.qs.FgsManagerControllerImpl$UserPackage", param.classLoader, "updateUiControl", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.systemui.qs.FgsManagerControllerImpl$UserPackage", param.classLoader, "updateUiControl", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     String packageName = (String) getObjectField(param.thisObject, "packageName");
@@ -618,7 +626,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         param.args[2] = false;
                 }
             });
-            findAndHookMethod("com.android.systemui.qs.QSFooterView", param.classLoader, "setBuildText", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.systemui.qs.QSFooterView", param.classLoader, "setBuildText", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     mQSFooterView = param.thisObject;
@@ -626,7 +634,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         setObjectField(mQSFooterView, "mShouldShowBuildText", false);
                 }
             });
-            findAndHookMethod("com.android.systemui.shade.carrier.ShadeCarrierGroupController", param.classLoader, "handleUpdateState", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.systemui.shade.carrier.ShadeCarrierGroupController", param.classLoader, "handleUpdateState", new XC_MethodHook() {
                 String carrierText = "";
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -640,13 +648,13 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     mCarrierText.setGravity(Gravity.END);
                 }
             });
-            findAndHookMethod("com.android.keyguard.CarrierTextController", param.classLoader, "onInit", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.keyguard.CarrierTextController", param.classLoader, "onInit", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     mCarrierTextCallback = getObjectField(param.thisObject, "mCarrierTextCallback");
                 }
             });
-            findAndHookMethod("com.android.keyguard.CarrierTextController$1", param.classLoader, "updateCarrierInfo", "com.android.keyguard.CarrierTextManager.CarrierTextCallbackInfo", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.keyguard.CarrierTextController$1", param.classLoader, "updateCarrierInfo", "com.android.keyguard.CarrierTextManager.CarrierTextCallbackInfo", new XC_MethodHook() {
                 String carrierText = "";
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
@@ -658,12 +666,85 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     param.args[0] = mInfo;
                 }
             });
+            hookAllConstructors(findClass("com.android.systemui.shade.NotificationPanelViewController", param.classLoader), new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    mNotificationPanelViewController = param.thisObject;
+                    View view = (View) getObjectField(param.thisObject, "mView");
+
+                    if (mDoubleTapGesture == null) {
+                        mDoubleTapGesture = new GestureDetector(view.getContext(),
+                                new GestureDetector.SimpleOnGestureListener() {
+                                    @Override
+                                    public boolean onDoubleTap(MotionEvent ev) {
+                                        callMethod(mPowerManager, "goToSleep", ev.getEventTime());
+                                        return true;
+                                    }
+                                });
+                    }
+                }
+            });
+            findAndHookMethodIfExists("com.android.systemui.shade.NotificationPanelViewController$TouchHandler", param.classLoader, "onTouchEvent", MotionEvent.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    MotionEvent ev = (MotionEvent) param.args[0];
+                    boolean isPulsing = getBooleanField(mNotificationPanelViewController, "mPulsing");
+                    boolean isDozing = getBooleanField(mNotificationPanelViewController, "mDozing");
+
+                    if (mDoubleTapToSleep && !isPulsing && !isDozing)
+                        mDoubleTapGesture.onTouchEvent(ev);
+                }
+            });
+            findAndHookMethodIfExists("com.android.systemui.shade.PulsingGestureListener", param.classLoader, "onDoubleTapEvent", MotionEvent.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    MotionEvent ev = (MotionEvent) param.args[0];
+                    Object statusBarStateController = getObjectField(param.thisObject, "statusBarStateController");
+                    Object falsingManager = getObjectField(param.thisObject, "falsingManager");
+                    boolean isDozing = (boolean) callMethod(statusBarStateController,"isDozing");
+                    boolean isFalseDoubleTap = (boolean) callMethod(falsingManager, "isFalseDoubleTap");
+
+                    if (mDoubleTapToSleep && ev.getActionMasked() == MotionEvent.ACTION_UP && !isDozing && !isFalseDoubleTap) {
+                        callMethod(mPowerManager, "goToSleep", ev.getEventTime());
+                        param.setResult(true);
+                    }
+                }
+            });
+            findAndHookMethodIfExists("com.android.systemui.shade.QuickSettingsController", param.classLoader, "isOpenQsEvent", MotionEvent.class, new XC_MethodHook() {
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (mQuickPulldown > 0) {
+                        MotionEvent ev = (MotionEvent) param.args[0];
+                        Object mQs = getObjectField(param.thisObject, "mQs");
+                        int mBarState = getIntField(param.thisObject, "mBarState");
+                        View mView = (View) callMethod(mQs, "getView");
+                        boolean isLayoutRtl = (boolean) callMethod(mView, "isLayoutRtl");
+                        int w = (int) callMethod(mView, "getMeasuredWidth");
+                        float x = ev.getX();
+                        float region = w * 1.f / 4.f;
+                        boolean showQsOverride = false;
+
+                        switch (mQuickPulldown) {
+                            case 1:
+                                showQsOverride = isLayoutRtl ? x < region : w - region < x;
+                                break;
+                            case 2:
+                                showQsOverride = isLayoutRtl ? w - region < x : x < region;
+                                break;
+                        }
+                        showQsOverride &= mBarState == 0;
+
+                        if (showQsOverride)
+                            param.setResult(true);
+                    }
+
+                }
+            });
             hookAllConstructors(findClass("com.android.systemui.navigationbar.gestural.EdgeBackGestureHandler", param.classLoader), new XC_MethodHook() {
                 protected void afterHookedMethod(MethodHookParam param) {
                     mEdgeBackGestureHandler = param.thisObject;
                 }
             });
-            findAndHookMethod("com.android.systemui.navigationbar.gestural.BackPanelController", param.classLoader, "onMotionEvent", MotionEvent.class, new XC_MethodHook() {
+            findAndHookMethodIfExists("com.android.systemui.navigationbar.gestural.BackPanelController", param.classLoader, "onMotionEvent", MotionEvent.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     if (mGestureHeight > 0) {
@@ -678,7 +759,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
             });
         } else if (param.packageName.equals("com.microsoft.office.outlook")) {
-            findAndHookMethod(Instrumentation.class, "newApplication", ClassLoader.class, String.class, Context.class, new XC_MethodHook() {
+            findAndHookMethodIfExists(Instrumentation.class, "newApplication", ClassLoader.class, String.class, Context.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     if (mContext == null) {
@@ -687,14 +768,14 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     }
                 }
             });
-            findAndHookMethod("com.microsoft.office.outlook.olmcore.managers.mdm.DevicePolicy", param.classLoader, "requiresDeviceManagement", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.microsoft.office.outlook.olmcore.managers.mdm.DevicePolicy", param.classLoader, "requiresDeviceManagement", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     if (mOutlookPolicy)
                         param.setResult(false);
                 }
             });
-            findAndHookMethod("com.microsoft.office.outlook.olmcore.managers.mdm.DevicePolicy", param.classLoader, "isPolicyApplied", new XC_MethodHook() {
+            findAndHookMethodIfExists("com.microsoft.office.outlook.olmcore.managers.mdm.DevicePolicy", param.classLoader, "isPolicyApplied", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     if (mOutlookPolicy)
@@ -712,7 +793,10 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             mHideAdbNotification = extras.getBoolean("value");
             if (mUsbHandler != null)
                 callMethod(mUsbHandler, "updateAdbNotification", false);
-        }
+        } else if ("trick_doubleTapToSleep".equals(key))
+            mDoubleTapToSleep = extras.getBoolean("value");
+        else if ("trick_quickPulldown".equals(key))
+            mQuickPulldown = Integer.parseInt(extras.getString("value"));
         else if ("trick_skipTrack".equals(key))
             mSkipTrack = extras.getBoolean("value");
         else if ("trick_powerTorch".equals(key))
@@ -763,5 +847,19 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             mGestureHeight = Integer.parseInt(extras.getString("value"));
         else if ("trick_OutlookPolicy".equals(key))
             mOutlookPolicy = extras.getBoolean("value");
+    }
+    private void findAndHookMethodIfExists(Class<?> clazz, String methodName, Object... parameterTypesAndCallback) {
+        Method method = findMethodExactIfExists(clazz, methodName, parameterTypesAndCallback);
+        if (method != null)
+            findAndHookMethod(clazz, methodName, parameterTypesAndCallback);
+        else
+            log("Failed to hook method " + clazz.getName() + "/" + methodName);
+    }
+    private void findAndHookMethodIfExists(String className, ClassLoader classLoader, String methodName, Object... parameterTypesAndCallback) {
+        Method method = findMethodExactIfExists(className, classLoader, methodName, parameterTypesAndCallback);
+        if (method != null)
+            findAndHookMethod(className, classLoader, methodName, parameterTypesAndCallback);
+        else
+            log("Failed to hook method " + className + "/" + methodName);
     }
 }

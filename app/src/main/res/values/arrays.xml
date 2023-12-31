@@ -18,6 +18,18 @@
         <item>120000</item>
     </string-array>
 
+    <string-array name="quickPulldown_entries">
+        <item>@string/quickPulldown_disabled</item>
+        <item>@string/quickPulldown_right</item>
+        <item>@string/quickPulldown_left</item>
+    </string-array>
+
+    <string-array name="quickPulldown_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
     <string-array name="gestureHeight_entries">
         <item>@string/gestureHeight_everywhere</item>
         <item>@string/gestureHeight_ten</item>
