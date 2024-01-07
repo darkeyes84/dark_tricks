@@ -2,9 +2,11 @@ package com.darkeyes.tricks;
 
 import static androidx.core.content.ContextCompat.registerReceiver;
 import static de.robv.android.xposed.XposedBridge.hookAllConstructors;
+import static de.robv.android.xposed.XposedBridge.hookAllMethods;
 import static de.robv.android.xposed.XposedBridge.invokeOriginalMethod;
 import static de.robv.android.xposed.XposedBridge.log;
 import static de.robv.android.xposed.XposedHelpers.callMethod;
+import static de.robv.android.xposed.XposedHelpers.callStaticMethod;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.findClass;
 import static de.robv.android.xposed.XposedHelpers.findMethodExactIfExists;
@@ -12,6 +14,7 @@ import static de.robv.android.xposed.XposedHelpers.getBooleanField;
 import static de.robv.android.xposed.XposedHelpers.getFloatField;
 import static de.robv.android.xposed.XposedHelpers.getIntField;
 import static de.robv.android.xposed.XposedHelpers.getObjectField;
+import static de.robv.android.xposed.XposedHelpers.getSurroundingThis;
 import static de.robv.android.xposed.XposedHelpers.setBooleanField;
 import static de.robv.android.xposed.XposedHelpers.setObjectField;
 
@@ -39,7 +42,6 @@ import android.os.SystemClock;
 import android.service.notification.StatusBarNotification;
 import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
-import android.util.SparseArray;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
@@ -101,6 +103,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private boolean mDoubleTapToSleep;
     private Object mNotificationPanelViewController;
     private GestureDetector mDoubleTapGesture;
+    private int mQuickQsOffsetHeight;
     private int mQuickPulldown;
     private Object mUsbHandler;
     private boolean mSkipTrack;
@@ -114,8 +117,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
     private Object mPhoneStatusBarPolicy;
     private Object mKeyguardZenAlarmViewController;
     private boolean mHideVpn;
+    private Object mStatusBarSignalPolicy;
     private boolean mHideCert;
-    private Object mSecurityControllerImpl;
     private boolean mHideAdGuard;
     private Object FgsManagerControllerImpl;
     private boolean mCircleActiveApps;
@@ -540,7 +543,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
         } else if (param.packageName.equals("com.android.systemui")) {
             findAndHookMethodIfExists(Instrumentation.class, "newApplication", ClassLoader.class, String.class, Context.class, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     if (mContext == null) {
                         mContext = (Context) param.args[2];
                         registerReceiver(mContext, mReceiver, mFilter, ContextCompat.RECEIVER_EXPORTED);
@@ -569,34 +572,59 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         setBooleanField(param.thisObject, "mCurrentUserSetup", currentUserSetup);
                 }
             });
-            findAndHookMethodIfExists("com.google.android.systemui.smartspace.KeyguardZenAlarmViewController", param.classLoader, "showAlarm", new XC_MethodHook() {
+            hookAllMethods(findClass("com.google.android.systemui.smartspace.KeyguardZenAlarmViewController$showAlarm$1", param.classLoader), "invokeSuspend", new XC_MethodHook() {
                 Drawable alarmImage;
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
                     mKeyguardZenAlarmViewController = param.thisObject;
-                    alarmImage = (Drawable) getObjectField(param.thisObject, "alarmImage");
+                    Object keyguardZenAlarmViewController = getSurroundingThis(param.thisObject);
+                    alarmImage = (Drawable) getObjectField(keyguardZenAlarmViewController, "alarmImage");
                     if (mHideNextAlarm)
-                        setObjectField(param.thisObject, "alarmImage", null);
+                        setObjectField(keyguardZenAlarmViewController, "alarmImage", null);
                 }
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
-                    if (mHideNextAlarm)
-                        setObjectField(param.thisObject, "alarmImage", alarmImage);
+                    if (mHideNextAlarm) {
+                        Object keyguardZenAlarmViewController = getSurroundingThis(param.thisObject);
+                        setObjectField(keyguardZenAlarmViewController, "alarmImage", alarmImage);
+                    }
                 }
             });
-            findAndHookMethodIfExists("com.android.systemui.statusbar.policy.SecurityControllerImpl", param.classLoader, "fireCallbacks", new XC_MethodHook() {
-                Object currentVpns;
-                Object hasCACerts;
+            findAndHookMethodIfExists("com.android.systemui.statusbar.phone.StatusBarSignalPolicy", param.classLoader, "onStateChanged", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
-                    mSecurityControllerImpl = param.thisObject;
-                    StackTraceElement[] stacktrace = Thread.currentThread().getStackTrace();
-                    if (stacktrace[6].getMethodName().equals("onAvailable") || stacktrace[6].getMethodName().equals("onLost"))
-                        currentVpns = getObjectField(param.thisObject, "mCurrentVpns");
-                    if (stacktrace[6].getMethodName().equals("run"))
-                        hasCACerts = getObjectField(param.thisObject, "mHasCACerts");
-                    setObjectField(param.thisObject, "mCurrentVpns", mHideVpn ? new SparseArray<>() : currentVpns);
-                    setObjectField(param.thisObject, "mHasCACerts", mHideCert ? new ArrayMap<Integer, Boolean>() : hasCACerts);
+                    mStatusBarSignalPolicy = param.thisObject;
+                    Object iconController = getObjectField(param.thisObject, "mIconController");
+                    String slotVpn = (String) getObjectField(param.thisObject, "mSlotVpn");
+                    Handler handler = (Handler) getObjectField(param.thisObject, "mHandler");
+                    handler.post(() -> {
+                        callMethod(iconController, "setIconVisibility", slotVpn, !mHideVpn);
+                    });
+                    if (mHideVpn)
+                        param.setResult(null);
+                }
+            });
+            findAndHookMethodIfExists("com.android.systemui.security.data.model.SecurityModel$Companion", param.classLoader, "create", "com.android.systemui.statusbar.policy.SecurityController", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    Object securityController = param.getResult();
+                    if (mHideVpn)
+                        setObjectField(securityController, "primaryVpnName", null);
+                    if (mHideCert)
+                        setBooleanField(securityController, "hasCACertInCurrentUser", false);
+                    param.setResult(securityController);
+                }
+            });
+            findAndHookMethodIfExists("com.android.systemui.qs.QSSecurityFooterUtils", param.classLoader, "createDialogView", Context.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    Context context = (Context) param.args[0];
+                    View dialogView = (View) param.getResult();
+                    if (mHideVpn)
+                        dialogView.findViewById(context.getResources().getIdentifier("vpn_disclosures", "id", context.getPackageName())).setVisibility(View.GONE);
+                    if (mHideCert)
+                        dialogView.findViewById(context.getResources().getIdentifier("ca_certs_disclosures", "id", context.getPackageName())).setVisibility(View.GONE);
+                    param.setResult(dialogView);
                 }
             });
             findAndHookMethodIfExists("com.android.systemui.qs.FgsManagerControllerImpl", param.classLoader, "getNumVisiblePackagesLocked", new XC_MethodHook() {
@@ -620,10 +648,13 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                         param.setResult(null);
                 }
             });
-            hookAllConstructors(findClass("com.android.systemui.qs.footer.ui.viewmodel.FooterActionsForegroundServicesButtonViewModel", param.classLoader), new XC_MethodHook() {
+            hookAllMethods(findClass("com.android.systemui.qs.footer.ui.binder.FooterActionsViewBinder$bind$1$2$1$1", param.classLoader), "emit", new XC_MethodHook() {
                 protected void beforeHookedMethod(MethodHookParam param) {
-                    if (mCircleActiveApps)
-                        param.args[2] = false;
+                    Object foregroundServices = param.args[0];
+                    if (mCircleActiveApps && foregroundServices != null) {
+                        setObjectField(foregroundServices, "displayText", false);
+                        param.args[0] = foregroundServices;
+                    }
                 }
             });
             findAndHookMethodIfExists("com.android.systemui.qs.QSFooterView", param.classLoader, "setBuildText", new XC_MethodHook() {
@@ -667,12 +698,15 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                 }
             });
             hookAllConstructors(findClass("com.android.systemui.shade.NotificationPanelViewController", param.classLoader), new XC_MethodHook() {
+                ClassLoader classLoader = param.classLoader;
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) {
                     mNotificationPanelViewController = param.thisObject;
                     View view = (View) getObjectField(param.thisObject, "mView");
+                    mQuickQsOffsetHeight = (int) callStaticMethod(findClass("com.android.internal.policy.SystemBarUtils", classLoader), "getQuickQsOffsetHeight", view.getContext());
 
                     if (mDoubleTapGesture == null) {
+                        mPowerManager = (PowerManager) view.getContext().getSystemService(Context.POWER_SERVICE);
                         mDoubleTapGesture = new GestureDetector(view.getContext(),
                                 new GestureDetector.SimpleOnGestureListener() {
                                     @Override
@@ -691,7 +725,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     boolean isPulsing = getBooleanField(mNotificationPanelViewController, "mPulsing");
                     boolean isDozing = getBooleanField(mNotificationPanelViewController, "mDozing");
 
-                    if (mDoubleTapToSleep && !isPulsing && !isDozing)
+                    if (mDoubleTapToSleep && ev.getY() < mQuickQsOffsetHeight && !isPulsing && !isDozing)
                         mDoubleTapGesture.onTouchEvent(ev);
                 }
             });
@@ -704,7 +738,8 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
                     boolean isDozing = (boolean) callMethod(statusBarStateController,"isDozing");
                     boolean isFalseDoubleTap = (boolean) callMethod(falsingManager, "isFalseDoubleTap");
 
-                    if (mDoubleTapToSleep && ev.getActionMasked() == MotionEvent.ACTION_UP && !isDozing && !isFalseDoubleTap) {
+                    if (mDoubleTapToSleep && ev.getActionMasked() == MotionEvent.ACTION_UP && ev.getY() < mQuickQsOffsetHeight
+                            && !isDozing && !isFalseDoubleTap) {
                         callMethod(mPowerManager, "goToSleep", ev.getEventTime());
                         param.setResult(true);
                     }
@@ -761,7 +796,7 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
         } else if (param.packageName.equals("com.microsoft.office.outlook")) {
             findAndHookMethodIfExists(Instrumentation.class, "newApplication", ClassLoader.class, String.class, Context.class, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(MethodHookParam param) {
                     if (mContext == null) {
                         mContext = (Context) param.args[2];
                         registerReceiver(mContext, mReceiver, mFilter, ContextCompat.RECEIVER_EXPORTED);
@@ -816,15 +851,13 @@ public class Main implements IXposedHookZygoteInit, IXposedHookLoadPackage {
             if (mPhoneStatusBarPolicy != null)
                 callMethod(mPhoneStatusBarPolicy, "updateAlarm");
             if (mKeyguardZenAlarmViewController != null)
-                callMethod(mKeyguardZenAlarmViewController, "showAlarm");
+                callMethod(mKeyguardZenAlarmViewController, "invokeSuspend", (Object) null);
         } else if ("trick_hideVpn".equals(key)) {
             mHideVpn = extras.getBoolean("value");
-            if (mSecurityControllerImpl != null)
-                callMethod(mSecurityControllerImpl, "fireCallbacks");
+            if (mStatusBarSignalPolicy != null)
+                callMethod(mStatusBarSignalPolicy, "onStateChanged");
         } else if ("trick_hideCert".equals(key)) {
             mHideCert = extras.getBoolean("value");
-            if (mSecurityControllerImpl != null)
-                callMethod(mSecurityControllerImpl, "fireCallbacks");
         } else if ("trick_hideAdGuard".equals(key)) {
             mHideAdGuard = extras.getBoolean("value");
             if (FgsManagerControllerImpl != null) {

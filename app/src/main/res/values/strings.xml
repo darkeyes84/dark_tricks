@@ -29,7 +29,7 @@
     <string name="hideAdbNotification_summary">Remove the notification when USB debugging is enabled</string>
 
     <string name="doubleTapToSleep_title">Double tap to sleep</string>
-    <string name="doubleTapToSleep_summary">Double tap on the status bar or anywhere on the lockscreen to turn off the screen</string>
+    <string name="doubleTapToSleep_summary">Double tap on the status bar to turn off the screen</string>
 
     <string name="quickPulldown_title">Quick pulldown to expand the quick settings</string>
     <string name="quickPulldown_disabled">Disabled</string>
