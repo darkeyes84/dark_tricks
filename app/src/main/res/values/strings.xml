@@ -77,4 +77,7 @@
 
     <string name="OutlookPolicy_title">Bypass Outlook device policy</string>
     <string name="OutlookPolicy_summary">Remove screen lock requirements and the need to enable Device admin</string>
+
+    <string name="PhoneRecorder_title">Disable phone recording warnings</string>
+    <string name="PhoneRecorder_summary">Silence warnings when starting and ending a call recording</string>
 </resources>

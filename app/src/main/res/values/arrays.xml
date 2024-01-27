@@ -71,6 +71,7 @@
     <string-array name="scopes" translatable="false">
         <item>android</item>
         <item>com.android.systemui</item>
+        <item>com.google.android.dialer</item>
         <item>com.google.android.inputmethod.latin</item>
         <item>com.microsoft.office.outlook</item>
     </string-array>

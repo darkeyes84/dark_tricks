@@ -9,7 +9,8 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class SettingsActivity extends AppCompatActivity implements OnSharedPreferenceChangeListener {
-    SharedPreferences prefs;
+    private SharedPreferences prefs;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -40,7 +41,7 @@ public class SettingsActivity extends AppCompatActivity implements OnSharedPrefe
         if (pref instanceof Boolean)
             intent.putExtra("value", sharedPreferences.getBoolean(key, false));
         else
-            intent.putExtra("value", sharedPreferences.getString(key, "0"));
+            intent.putExtra("value", sharedPreferences.getString(key, key.equals("trick_customCarrierText") ? "" : "0"));
         sendBroadcast(intent);
     }
 }

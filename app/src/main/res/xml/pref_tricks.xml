@@ -150,4 +150,11 @@
         app:iconSpaceReserved="false"
         android:defaultValue="false" />
 
+    <SwitchPreferenceCompat
+        android:key="trick_PhoneRecorder"
+        android:title="@string/PhoneRecorder_title"
+        android:summary="@string/PhoneRecorder_summary"
+        app:iconSpaceReserved="false"
+        android:defaultValue="false" />
+
 </PreferenceScreen>
